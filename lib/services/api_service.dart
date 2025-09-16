@@ -14,6 +14,59 @@ class ApiService {
     await Future.delayed(const Duration(seconds: 1));
   }
 
+  // Join class by code/id
+  Future<Map<String, dynamic>> joinClass({
+    required String classId,
+    required String studentId,
+    String? accessToken,
+  }) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/student/join-class');
+      final headers = {
+        'Content-Type': 'application/json',
+        if (accessToken != null && accessToken.isNotEmpty)
+          'Authorization': 'Bearer $accessToken',
+      };
+
+      final response = await http.post(
+        uri,
+        headers: headers,
+        body: jsonEncode({'classId': classId, 'studentId': studentId}),
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final data = jsonDecode(response.body);
+        // Normalize response to a common shape
+        final joinedClass = (data is Map<String, dynamic>)
+            ? (data['class'] ?? data['data'] ?? data['classObj'] ?? data)
+            : data;
+        return {
+          'success': true,
+          'message': (data is Map<String, dynamic>)
+              ? (data['message'] ?? 'تم الانضمام إلى الكلاس بنجاح')
+              : 'تم الانضمام إلى الكلاس بنجاح',
+          'class': joinedClass,
+        };
+      } else {
+        // Try to extract error from JSON body
+        try {
+          final errorData = jsonDecode(response.body);
+          String errorMessage = (errorData is Map<String, dynamic>)
+              ? (errorData['message'] ??
+                  errorData['error'] ??
+                  errorData['msg'] ??
+                  'فشل في الانضمام إلى الكلاس')
+              : 'فشل في الانضمام إلى الكلاس';
+          throw Exception(errorMessage);
+        } catch (_) {
+          throw Exception('فشل في الانضمام إلى الكلاس');
+        }
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
   // Authentication Methods
   Future<Map<String, dynamic>> login({
     required String email,
@@ -118,7 +171,7 @@ class ApiService {
       print('Response body: ${response.body}');
       print('Response headers: ${response.headers}');
 
-      if (response.statusCode == 201) {
+      if (response.statusCode == 201 || response.statusCode == 200) {
         final responseData = jsonDecode(response.body);
         print('Success response data: $responseData');
 
@@ -128,8 +181,8 @@ class ApiService {
               'API Service: Success - pendingId found: ${responseData['pendingId']}');
           return responseData; // contains pendingId
         } else {
-          // API returned 201 but no pendingId - this is an error
-          print('API Service: 201 response but no pendingId found');
+          // API returned success but no pendingId - this is an error
+          print('API Service: Success response but no pendingId found');
           print('API Service: Response keys: ${responseData.keys.toList()}');
           print('API Service: Full response: $responseData');
 
@@ -288,7 +341,7 @@ class ApiService {
       // If your backend uses a different path, adjust here accordingly.
       print('API URL: $baseUrl/api/payment/checkout');
 
-      final response = await http.post(
+      http.Response response = await http.post(
         Uri.parse('$baseUrl/api/payment/checkout'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'pendingId': pendingId, 'planId': planId}),
@@ -297,9 +350,35 @@ class ApiService {
       print('Checkout session response status: ${response.statusCode}');
       print('Checkout session response body: ${response.body}');
 
-      if (response.statusCode == 200) {
+      // Fallback to the older endpoint if needed
+      if (response.statusCode == 404 || response.statusCode == 405) {
+        print('Primary checkout endpoint not found; trying legacy endpoint');
+        response = await http.post(
+          Uri.parse('$baseUrl/api/payment/create-checkout-session'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({'pendingId': pendingId, 'planId': planId}),
+        );
+        print('Legacy endpoint status: ${response.statusCode}');
+        print('Legacy endpoint body: ${response.body}');
+      }
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
         final data = jsonDecode(response.body);
-        return data['url']; // Stripe checkout URL
+        if (data is Map<String, dynamic>) {
+          final possibleUrl =
+              data['url'] ?? data['checkoutUrl'] ?? data['paymentUrl'];
+          if (possibleUrl is String && possibleUrl.isNotEmpty) {
+            return possibleUrl;
+          }
+          if (data.containsKey('data') &&
+              data['data'] is Map<String, dynamic>) {
+            final inner = data['data'] as Map<String, dynamic>;
+            final innerUrl =
+                inner['url'] ?? inner['checkoutUrl'] ?? inner['paymentUrl'];
+            if (innerUrl is String && innerUrl.isNotEmpty) return innerUrl;
+          }
+        }
+        throw Exception('رابط الدفع غير موجود في استجابة الخادم');
       } else {
         print(
             'Error creating checkout session: ${response.statusCode} - ${response.body}');

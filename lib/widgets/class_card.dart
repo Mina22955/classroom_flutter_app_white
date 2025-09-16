@@ -25,7 +25,7 @@ class ClassCard extends StatelessWidget {
             side: BorderSide(color: Colors.black.withOpacity(0.08), width: 1),
           ),
           child: SizedBox(
-            height: 72,
+            height: 92,
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Row(
@@ -64,8 +64,8 @@ class ClassCard extends StatelessWidget {
                   ),
                   const Icon(
                     Icons.arrow_forward_ios,
-                    size: 16,
-                    color: Color(0xFF8E8E93),
+                    size: 18,
+                    color: Color(0xFF0A84FF),
                   ),
                 ],
               ),

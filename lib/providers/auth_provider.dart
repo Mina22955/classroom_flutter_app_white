@@ -71,6 +71,35 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
+  // Join class by id/code
+  Future<Map<String, dynamic>?> joinClassById(String classId) async {
+    if (_user == null) {
+      _setError('يرجى تسجيل الدخول أولاً');
+      return null;
+    }
+
+    try {
+      final rawUserId = _user!['id'] ?? _user!['_id'] ?? _user!['userId'];
+      if (rawUserId == null) {
+        _setError('معرف الطالب غير متوفر');
+        return null;
+      }
+      final response = await _apiService.joinClass(
+        classId: classId,
+        studentId: rawUserId.toString(),
+        accessToken: _token,
+      );
+      return response;
+    } catch (e) {
+      String errorMessage = e.toString();
+      if (errorMessage.startsWith('Exception: ')) {
+        errorMessage = errorMessage.substring(11);
+      }
+      _setError(errorMessage);
+      return null;
+    }
+  }
+
   // Legacy signup method (for backward compatibility)
   Future<bool> signup({
     required String name,

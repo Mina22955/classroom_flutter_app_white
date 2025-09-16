@@ -21,94 +21,63 @@ class StudentCard extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(16),
-        child: Card(
-          color: Colors.transparent,
-          elevation: 1,
-          shape: RoundedRectangleBorder(
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
             borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.15),
+                blurRadius: 28,
+                spreadRadius: 4,
+                offset: const Offset(0, 10),
+              ),
+              BoxShadow(
+                color: Colors.black.withOpacity(0.08),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(16),
-            child: Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: Colors.black.withOpacity(0.08),
-                  width: 1,
+            child: Stack(
+              children: [
+                // Decorative ring similar to plan cards
+                Positioned(
+                  top: -30,
+                  right: -20,
+                  child: Container(
+                    width: 120,
+                    height: 120,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: const Color(0xFF0A84FF).withOpacity(0.15),
+                        width: 2,
+                      ),
+                    ),
+                  ),
                 ),
-              ),
-              child: Stack(
-                children: [
-                  // Base multi-stop gradient to enhance gradation
-                  Container(
-                    decoration: const BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          Color(0xFFFAFBFF),
-                          Color(0xFFF4F6FA),
-                          Color(0xFFEDEFF4),
-                          Color(0xFFE9EBF0),
-                        ],
-                        stops: [0.0, 0.35, 0.7, 1.0],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
+                // Status badge at top-left
+                Positioned(
+                  top: 10,
+                  left: 12,
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: (isSubscribed ? Colors.green : Colors.red)
+                          .withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: (isSubscribed ? Colors.green : Colors.red)
+                            .withOpacity(0.6),
+                        width: 1,
                       ),
                     ),
-                  ),
-                  // Subtle overlay to create melting/soft blend
-                  Positioned.fill(
-                    child: IgnorePointer(
-                      child: Container(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              Colors.white.withOpacity(0.06),
-                              Colors.transparent,
-                              Colors.black.withOpacity(0.08),
-                            ],
-                            stops: const [0.0, 0.5, 1.0],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  // diagonal soft band (mimics melting/gradation streak)
-                  Positioned.fill(
-                    child: IgnorePointer(
-                      child: Container(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: const Alignment(-0.8, -0.2),
-                            end: const Alignment(0.6, 1.0),
-                            colors: [
-                              Colors.white.withOpacity(0.035),
-                              Colors.transparent,
-                            ],
-                            stops: const [0.0, 1.0],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  Positioned.fill(
-                    child: IgnorePointer(
-                      child: Container(
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: const Color(0xFFFFFFFF).withOpacity(0.12),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  // Status at top-left
-                  Positioned(
-                    top: 10,
-                    left: 12,
                     child: Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
                         Container(
                           width: 8,
@@ -125,49 +94,57 @@ class StudentCard extends StatelessWidget {
                             color: isSubscribed
                                 ? Colors.green[700]
                                 : Colors.red[700],
-                            fontSize: 14,
+                            fontSize: 12,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
                       ],
                     ),
                   ),
-                  Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                studentName,
-                                style: const TextStyle(
-                                  color: Colors.black,
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // Name (blue)
+                            Text(
+                              studentName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Color(0xFF0A84FF),
+                                fontSize: 20,
+                                fontWeight: FontWeight.w800,
                               ),
-                              const SizedBox(height: 12),
-                              const SizedBox(height: 4),
-                              Text(
-                                'تجديد: $renewalDate',
-                                style: const TextStyle(
-                                  color: Color(0xFF6B7280),
-                                  fontSize: 13,
+                            ),
+                            const SizedBox(height: 8),
+                            Row(
+                              children: [
+                                const Icon(Icons.calendar_today,
+                                    size: 14, color: Color(0xFF6B7280)),
+                                const SizedBox(width: 6),
+                                Text(
+                                  'تجديد: $renewalDate',
+                                  style: const TextStyle(
+                                    color: Color(0xFF6B7280),
+                                    fontSize: 13,
+                                  ),
                                 ),
-                              ),
-                            ],
-                          ),
+                              ],
+                            ),
+                          ],
                         ),
-                        // Arrow removed per request
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ),
