@@ -284,10 +284,12 @@ class ApiService {
     try {
       print(
           'Creating checkout session with pendingId: $pendingId, planId: $planId');
-      print('API URL: $baseUrl/api/payment/create-checkout-session');
+      // NOTE: Backend route per documentation is /api/payment/checkout
+      // If your backend uses a different path, adjust here accordingly.
+      print('API URL: $baseUrl/api/payment/checkout');
 
       final response = await http.post(
-        Uri.parse('$baseUrl/api/payment/create-checkout-session'),
+        Uri.parse('$baseUrl/api/payment/checkout'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'pendingId': pendingId, 'planId': planId}),
       );

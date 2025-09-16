@@ -46,17 +46,27 @@ class PlanCard extends StatelessWidget {
       child: Container(
         margin: const EdgeInsets.only(bottom: 16),
         decoration: BoxDecoration(
-          color: const Color(0xFFF2F2F7),
+          color: Colors.white,
           borderRadius: BorderRadius.circular(16),
           border: isSelected
               ? Border.all(
                   color: const Color(0xFF0A84FF),
                   width: 2,
                 )
-              : Border.all(
-                  color: Colors.black.withOpacity(0.06),
-                  width: 1,
-                ),
+              : null,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.15),
+              blurRadius: 28,
+              spreadRadius: 4,
+              offset: const Offset(0, 10),
+            ),
+            BoxShadow(
+              color: Colors.black.withOpacity(0.08),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
         child: Stack(
           children: [
@@ -137,7 +147,7 @@ class PlanCard extends StatelessWidget {
                       Text(
                         '$planPrice',
                         style: const TextStyle(
-                          color: Colors.black,
+                          color: Color(0xFF0A84FF),
                           fontSize: 32,
                           fontWeight: FontWeight.bold,
                         ),

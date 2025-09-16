@@ -29,6 +29,9 @@ class _SignupWithPaymentScreenState extends State<SignupWithPaymentScreen> {
 
   Map<String, dynamic>? _selectedPlan;
 
+  bool _showPassword = false;
+  bool _showConfirmPassword = false;
+
   @override
   void initState() {
     super.initState();
@@ -90,11 +93,12 @@ class _SignupWithPaymentScreenState extends State<SignupWithPaymentScreen> {
       if (success && mounted) {
         final checkoutUrl = await authProvider
             .createCheckoutSession(_selectedPlan!['_id'] ?? '');
+        // Stop loading before navigation or error display
+        authProvider.setLoading(false);
         if (checkoutUrl != null && mounted) {
           context.go('/payment', extra: {'url': checkoutUrl});
           return;
         } else if (mounted) {
-          authProvider.setLoading(false);
           setState(() {
             _errorMessage = authProvider.error ?? 'فشل في إنشاء جلسة الدفع';
           });
@@ -330,9 +334,22 @@ class _SignupWithPaymentScreenState extends State<SignupWithPaymentScreen> {
                       CustomTextField(
                         controller: _passwordController,
                         hintText: 'كلمة المرور',
-                        obscureText: true,
+                        obscureText: !_showPassword,
                         prefixIcon: const Icon(Icons.lock_outline,
                             color: Color(0xFFB0B0B0)),
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            _showPassword
+                                ? Icons.visibility_outlined
+                                : Icons.visibility_off_outlined,
+                            color: const Color(0xFFB0B0B0),
+                          ),
+                          onPressed: () {
+                            setState(() {
+                              _showPassword = !_showPassword;
+                            });
+                          },
+                        ),
                         validator: (value) {
                           if (value == null || value.isEmpty)
                             return 'كلمة المرور مطلوبة';
@@ -347,9 +364,22 @@ class _SignupWithPaymentScreenState extends State<SignupWithPaymentScreen> {
                       CustomTextField(
                         controller: _confirmPasswordController,
                         hintText: 'تأكيد كلمة المرور',
-                        obscureText: true,
+                        obscureText: !_showConfirmPassword,
                         prefixIcon: const Icon(Icons.lock_outline,
                             color: Color(0xFFB0B0B0)),
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            _showConfirmPassword
+                                ? Icons.visibility_outlined
+                                : Icons.visibility_off_outlined,
+                            color: const Color(0xFFB0B0B0),
+                          ),
+                          onPressed: () {
+                            setState(() {
+                              _showConfirmPassword = !_showConfirmPassword;
+                            });
+                          },
+                        ),
                         validator: (value) {
                           if (value == null || value.isEmpty)
                             return 'تأكيد كلمة المرور مطلوب';
