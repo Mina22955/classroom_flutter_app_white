@@ -42,6 +42,14 @@ class _MyAppState extends State<MyApp> {
             debugShowCheckedModeBanner: false,
             theme: appTheme,
             routerConfig: AppRouter.router,
+            builder: (context, child) {
+              // Ensure all pages respect the system status/notification bar area
+              return SafeArea(
+                top: true,
+                bottom: false,
+                child: child ?? const SizedBox.shrink(),
+              );
+            },
             locale: const Locale('ar', 'SA'),
             localizationsDelegates: const [
               GlobalMaterialLocalizations.delegate,
