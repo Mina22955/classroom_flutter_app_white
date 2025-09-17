@@ -94,8 +94,21 @@ class ProfileScreen extends StatelessWidget {
                             width: 80,
                             height: 80,
                             decoration: BoxDecoration(
-                              color: const Color(0xFF1A3342),
+                              color: const Color(0xFFEAF2FF),
                               borderRadius: BorderRadius.circular(40),
+                              border: Border.all(
+                                color:
+                                    const Color(0xFF0A84FF).withOpacity(0.18),
+                                width: 1.5,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color:
+                                      const Color(0xFF0A84FF).withOpacity(0.12),
+                                  blurRadius: 12,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
                             ),
                             child: ShaderMask(
                               shaderCallback: (Rect bounds) {
@@ -112,7 +125,7 @@ class ProfileScreen extends StatelessWidget {
                               child: const Icon(
                                 Icons.person,
                                 color: Colors.black,
-                                size: 40,
+                                size: 44,
                               ),
                             ),
                           ),

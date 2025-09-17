@@ -573,25 +573,7 @@ class _ClassroomScreenState extends State<ClassroomScreen> {
                 ),
               ),
             if (_showSearch) const SizedBox(height: 8),
-            // Notes filter chips (only on notes tab)
-            if (_currentIndex == 0)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Directionality(
-                  textDirection: TextDirection.rtl,
-                  child: Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      _buildFilterChip(0, 'الكل'),
-                      _buildFilterChip(1, 'آخر يوم'),
-                      _buildFilterChip(2, 'آخر أسبوع'),
-                      _buildFilterChip(3, 'آخر شهر'),
-                    ],
-                  ),
-                ),
-              ),
-            if (_currentIndex == 0) const SizedBox(height: 8),
+            // Removed notes filter chips per request
             // Content
             Expanded(child: _buildCurrentSectionList()),
           ],

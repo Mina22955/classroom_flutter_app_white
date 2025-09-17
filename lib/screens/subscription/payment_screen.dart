@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter/services.dart';
 import '../../widgets/gradient_bg.dart';
 
 class PaymentScreen extends StatefulWidget {
@@ -11,32 +12,116 @@ class PaymentScreen extends StatefulWidget {
 }
 
 class _PaymentScreenState extends State<PaymentScreen> {
-  Future<void> _openInExternalBrowser(String url) async {
+  String _ensureHttpUrl(String url) {
+    final trimmed = url.trim();
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+      return trimmed;
+    }
+    return 'https://$trimmed';
+  }
+
+  Future<bool> _tryLaunch(Uri uri, LaunchMode mode) async {
     try {
-      final uri = Uri.parse(url);
       if (await canLaunchUrl(uri)) {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
-      } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('لا يمكن فتح رابط الدفع'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
+        final ok = await launchUrl(uri, mode: mode);
+        return ok;
       }
+      return false;
     } catch (e) {
-      print('Error launching URL: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('خطأ في فتح رابط الدفع'),
-            backgroundColor: Colors.red,
+      print('Launch error ($mode): $e');
+      return false;
+    }
+  }
+
+  Future<void> _openInExternalBrowser(String url) async {
+    final normalized = _ensureHttpUrl(url);
+    final uri = Uri.parse(normalized);
+
+    // 1) Try external browser (chooser if no default)
+    final openedExternal =
+        await _tryLaunch(uri, LaunchMode.externalApplication);
+    if (openedExternal) return;
+
+    // 2) Fallback to in-app browser view
+    final openedInApp = await _tryLaunch(uri, LaunchMode.inAppBrowserView);
+    if (openedInApp) return;
+
+    // 3) Final fallback: copy link and show message
+    await Clipboard.setData(ClipboardData(text: normalized));
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        content:
+            const Text('لا يمكن فتح رابط الدفع. تم نسخ الرابط إلى الحافظة'),
+        action: SnackBarAction(
+          label: 'فتح',
+          onPressed: () async {
+            await _tryLaunch(uri, LaunchMode.externalApplication);
+          },
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showOpenOptions(String url) async {
+    final normalized = _ensureHttpUrl(url);
+    final uri = Uri.parse(normalized);
+
+    await showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (_) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                ElevatedButton.icon(
+                  onPressed: () async {
+                    Navigator.of(context).pop();
+                    await _tryLaunch(uri, LaunchMode.externalApplication);
+                  },
+                  icon: const Icon(Icons.open_in_browser),
+                  label: const Text('فتح في المتصفح'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF0A84FF),
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                OutlinedButton.icon(
+                  onPressed: () async {
+                    Navigator.of(context).pop();
+                    await _tryLaunch(uri, LaunchMode.inAppBrowserView);
+                  },
+                  icon: const Icon(Icons.web_asset),
+                  label: const Text('فتح داخل التطبيق'),
+                ),
+                const SizedBox(height: 10),
+                TextButton.icon(
+                  onPressed: () async {
+                    await Clipboard.setData(ClipboardData(text: normalized));
+                    if (mounted) {
+                      Navigator.of(context).pop();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('تم نسخ الرابط')),
+                      );
+                    }
+                  },
+                  icon: const Icon(Icons.copy),
+                  label: const Text('نسخ الرابط'),
+                )
+              ],
+            ),
           ),
         );
-      }
-    }
+      },
+    );
   }
 
   @override
@@ -142,7 +227,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 ),
                 const SizedBox(height: 40),
                 ElevatedButton.icon(
-                  onPressed: () => _openInExternalBrowser(checkoutUrl),
+                  onPressed: () => _showOpenOptions(checkoutUrl),
                   icon: const Icon(Icons.open_in_browser),
                   label: const Text('فتح صفحة الدفع'),
                   style: ElevatedButton.styleFrom(
