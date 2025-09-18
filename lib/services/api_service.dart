@@ -20,86 +20,76 @@ class ApiService {
     String? accessToken,
   }) async {
     try {
-      // Try multiple URL patterns to find the correct one
-      final urlPatterns = [
-        '$baseUrl/api/student/class/$classId/Allfiles',
-        '$baseUrl/api/student/classes/$classId/files',
-        '$baseUrl/api/student/classes/$classId/Allfiles',
-        '$baseUrl/api/student/$classId/files',
-        '$baseUrl/api/student/$classId/Allfiles',
-      ];
-
+      final uri = Uri.parse('$baseUrl/api/student/class/$classId/Allfiles');
       final headers = {
         'Content-Type': 'application/json',
         if (accessToken != null && accessToken.isNotEmpty)
           'Authorization': 'Bearer $accessToken',
       };
 
-      print('=== FILES API DEBUG ===');
-      print('Class ID: $classId');
-      print('Base URL: $baseUrl');
-      print(
-          'Token available: ${accessToken != null && accessToken.isNotEmpty}');
-      if (accessToken != null) {
-        print('Token preview: ${accessToken.substring(0, 10)}...');
-      }
+      print('Making API call to: $uri');
+      print('Headers: $headers');
 
-      for (int i = 0; i < urlPatterns.length; i++) {
-        final uri = Uri.parse(urlPatterns[i]);
-        print('Trying URL ${i + 1}: $uri');
+      final response = await http.get(uri, headers: headers);
 
-        try {
-          final response = await http.get(uri, headers: headers);
-          print('URL ${i + 1} - Status: ${response.statusCode}');
-          print('URL ${i + 1} - Body: ${response.body}');
+      print('Response status: ${response.statusCode}');
+      print('Response body: ${response.body}');
 
-          if (response.statusCode == 200) {
-            print('✅ SUCCESS with URL ${i + 1}!');
-            final data = jsonDecode(response.body);
-            print('Parsed data: $data');
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        print('API Response for class files: $data');
 
-            // Try different possible response formats
-            if (data is Map<String, dynamic>) {
-              if (data.containsKey('files')) {
-                final files = data['files'] as List<dynamic>;
-                print('Found ${files.length} files in response');
-                return files.cast<Map<String, dynamic>>();
-              } else if (data.containsKey('data') && data['data'] is List) {
-                final files = data['data'] as List<dynamic>;
-                print('Found ${files.length} files in data field');
-                return files.cast<Map<String, dynamic>>();
-              } else {
-                print('No files array found in response object');
-                print('Available keys: ${data.keys.toList()}');
-                return [];
-              }
-            } else if (data is List) {
-              print('Response is direct list with ${data.length} items');
-              return data.cast<Map<String, dynamic>>();
-            }
-            print('Unexpected response format');
-            return [];
-          } else if (response.statusCode == 404) {
-            print('❌ URL ${i + 1} - Not found (404)');
-          } else if (response.statusCode == 401) {
-            print('❌ URL ${i + 1} - Unauthorized (401)');
-          } else if (response.statusCode == 403) {
-            print('❌ URL ${i + 1} - Forbidden (403)');
+        // Handle the response format: {"files": [...]}
+        if (data is Map<String, dynamic>) {
+          if (data.containsKey('files')) {
+            final files = data['files'] as List<dynamic>;
+            print('Extracted files from response: $files');
+
+            // Validate and enhance file data
+            final processedFiles = files.map((file) {
+              final fileMap = file as Map<String, dynamic>;
+
+              // Check if URL is expired
+              final expiresAt = fileMap['expiresAt'];
+              final isExpired = expiresAt != null &&
+                  DateTime.now().millisecondsSinceEpoch > (expiresAt * 1000);
+
+              return {
+                ...fileMap,
+                'isExpired': isExpired,
+                'expiresAtFormatted': expiresAt != null
+                    ? DateTime.fromMillisecondsSinceEpoch(expiresAt * 1000)
+                        .toIso8601String()
+                    : null,
+              };
+            }).toList();
+
+            return processedFiles.cast<Map<String, dynamic>>();
+          } else if (data.containsKey('data') && data['data'] is List) {
+            final files = data['data'] as List<dynamic>;
+            print('Extracted files from data field: $files');
+            return files.cast<Map<String, dynamic>>();
           } else {
-            print(
-                '❌ URL ${i + 1} - Error ${response.statusCode}: ${response.body}');
+            print('No files array found in response object');
+            print('Available keys: ${data.keys.toList()}');
+            return [];
           }
-        } catch (e) {
-          print('❌ URL ${i + 1} - Exception: $e');
+        } else if (data is List) {
+          print('Response is direct list: $data');
+          return data.cast<Map<String, dynamic>>();
         }
-        print('---');
+        print('Unexpected response format');
+        return [];
+      } else if (response.statusCode == 404) {
+        print('Class not found: ${response.body}');
+        return [];
+      } else {
+        print(
+            'Error fetching class files: ${response.statusCode} - ${response.body}');
+        return [];
       }
-
-      print('=== END FILES API DEBUG ===');
-      print('All URL patterns failed');
-      return [];
     } catch (e) {
-      print('Exception in getClassFiles: $e');
+      print('Exception fetching class files: $e');
       return [];
     }
   }
@@ -257,6 +247,7 @@ class ApiService {
   Future<Map<String, dynamic>> login({
     required String email,
     required String password,
+    String? deviceToken,
   }) async {
     final response = await http.post(
       Uri.parse('$baseUrl/api/auth/login'),
@@ -264,6 +255,7 @@ class ApiService {
       body: jsonEncode({
         'email': email,
         'password': password,
+        'deviceToken': deviceToken,
       }),
     );
 
@@ -798,10 +790,56 @@ class ApiService {
     };
   }
 
-  // Utility Methods
-  Future<void> logout() async {
-    await _mockDelay();
-    // Mock logout - clear token, etc.
+  // Logout method
+  Future<Map<String, dynamic>> logout({
+    required String userId,
+    required String deviceToken,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/auth/logout'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'userId': userId,
+          'deviceToken': deviceToken,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        print('Logout error: ${response.statusCode} - ${response.body}');
+        return {'success': false, 'message': 'Logout failed'};
+      }
+    } catch (e) {
+      print('Logout exception: $e');
+      return {'success': false, 'message': 'Logout failed'};
+    }
+  }
+
+  // Force logout method (for device conflict resolution)
+  Future<Map<String, dynamic>> forceLogout({
+    required String userId,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/auth/force-logout'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'userId': userId,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        print('Force logout error: ${response.statusCode} - ${response.body}');
+        return {'success': false, 'message': 'Force logout failed'};
+      }
+    } catch (e) {
+      print('Force logout exception: $e');
+      return {'success': false, 'message': 'Force logout failed'};
+    }
   }
 
   // ---------------- Dashboard Integration Stubs ----------------

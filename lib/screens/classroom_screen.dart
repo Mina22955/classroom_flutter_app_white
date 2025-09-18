@@ -221,6 +221,8 @@ class _ClassroomScreenState extends State<ClassroomScreen> {
                 'content': file['description'] ?? 'لا يوجد وصف',
                 'pdfUrl': file['pdfUrl'],
                 'expiresAt': file['expiresAt'],
+                'isExpired': file['isExpired'] ?? false,
+                'expiresAtFormatted': file['expiresAtFormatted'],
               })
           .toList();
     } else if (_currentIndex == 2) {
@@ -377,33 +379,6 @@ class _ClassroomScreenState extends State<ClassroomScreen> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 12),
-                // Debug button to test API
-                ElevatedButton.icon(
-                  onPressed: () async {
-                    final authProvider =
-                        Provider.of<AuthProvider>(context, listen: false);
-                    final token = authProvider.token;
-                    print('=== MANUAL API TEST ===');
-                    print('Class ID: ${widget.classId}');
-                    print('Class Name: ${widget.className}');
-                    print(
-                        'Token: ${token != null ? 'Available' : 'Not available'}');
-                    if (token != null) {
-                      print('Token preview: ${token.substring(0, 10)}...');
-                    }
-                    await _loadFiles();
-                  },
-                  icon: const Icon(Icons.bug_report),
-                  label: const Text('اختبار API'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.orange,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                ),
               ],
             ),
           ),
@@ -463,10 +438,58 @@ class _ClassroomScreenState extends State<ClassroomScreen> {
                     ),
                     subtitle: Padding(
                       padding: const EdgeInsets.only(top: 6),
-                      child: Text(
-                        file['content']!,
-                        style: const TextStyle(
-                            color: Color(0xFF6B7280), fontSize: 13),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            file['content']!,
+                            style: const TextStyle(
+                                color: Color(0xFF6B7280), fontSize: 13),
+                          ),
+                          if (file['isExpired'] == true) ...[
+                            const SizedBox(height: 4),
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.warning_amber_rounded,
+                                  size: 14,
+                                  color: Colors.orange,
+                                ),
+                                const SizedBox(width: 4),
+                                const Text(
+                                  'انتهت صلاحية الرابط',
+                                  style: TextStyle(
+                                    color: Colors.orange,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ] else if (file['expiresAtFormatted'] != null) ...[
+                            const SizedBox(height: 4),
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.schedule,
+                                  size: 14,
+                                  color: Color(0xFF0A84FF),
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'ينتهي: ${_formatExpirationDate(file['expiresAtFormatted'])}',
+                                  style: const TextStyle(
+                                    color: Color(0xFF6B7280),
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ],
                       ),
                     ),
                     children: [
@@ -523,22 +546,39 @@ class _ClassroomScreenState extends State<ClassroomScreen> {
                         child: SizedBox(
                           height: 42,
                           child: TextButton.icon(
-                            onPressed: () =>
-                                _openPdf(file['pdfUrl']!, file['title']!),
-                            icon: const Icon(Icons.visibility,
-                                color: Color(0xFF0A84FF)),
-                            label: const Text(
-                              'فتح الملف',
+                            onPressed: file['isExpired'] == true
+                                ? () => _showExpiredDialog(file['title']!)
+                                : () =>
+                                    _openPdf(file['pdfUrl']!, file['title']!),
+                            icon: Icon(
+                              file['isExpired'] == true
+                                  ? Icons.warning_amber_rounded
+                                  : Icons.visibility,
+                              color: file['isExpired'] == true
+                                  ? Colors.orange
+                                  : const Color(0xFF0A84FF),
+                            ),
+                            label: Text(
+                              file['isExpired'] == true
+                                  ? 'انتهت الصلاحية'
+                                  : 'فتح الملف',
                               style: TextStyle(
-                                color: Color(0xFF0A84FF),
+                                color: file['isExpired'] == true
+                                    ? Colors.orange
+                                    : const Color(0xFF0A84FF),
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
                             style: TextButton.styleFrom(
-                              foregroundColor: const Color(0xFF0A84FF),
-                              side: const BorderSide(
-                                  color: Color(0xFF0A84FF), width: 1.5),
+                              foregroundColor: file['isExpired'] == true
+                                  ? Colors.orange
+                                  : const Color(0xFF0A84FF),
+                              side: BorderSide(
+                                  color: file['isExpired'] == true
+                                      ? Colors.orange
+                                      : const Color(0xFF0A84FF),
+                                  width: 1.5),
                               shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12)),
                               padding:
@@ -1028,6 +1068,12 @@ class _ClassroomScreenState extends State<ClassroomScreen> {
   }
 
   void _openPdf(String pdfUrl, String fileName) {
+    print('=== OPENING PDF ===');
+    print('PDF URL: $pdfUrl');
+    print('File Name: $fileName');
+    print('URL Valid: ${Uri.tryParse(pdfUrl) != null}');
+
+    // Try secure PDF viewer first (in-app viewing)
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => SecurePdfViewer(
@@ -1035,6 +1081,90 @@ class _ClassroomScreenState extends State<ClassroomScreen> {
           fileName: fileName,
         ),
       ),
+    );
+  }
+
+  String _formatExpirationDate(String? isoDate) {
+    if (isoDate == null) return 'غير محدد';
+
+    try {
+      final date = DateTime.parse(isoDate);
+      final now = DateTime.now();
+      final difference = date.difference(now);
+
+      if (difference.inDays > 0) {
+        return '${difference.inDays} يوم';
+      } else if (difference.inHours > 0) {
+        return '${difference.inHours} ساعة';
+      } else if (difference.inMinutes > 0) {
+        return '${difference.inMinutes} دقيقة';
+      } else {
+        return 'قريباً';
+      }
+    } catch (e) {
+      return 'غير محدد';
+    }
+  }
+
+  void _showExpiredDialog(String fileName) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return Directionality(
+          textDirection: TextDirection.rtl,
+          child: AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            title: Row(
+              children: [
+                const Icon(
+                  Icons.warning_amber_rounded,
+                  color: Colors.orange,
+                  size: 24,
+                ),
+                const SizedBox(width: 8),
+                const Text(
+                  'انتهت صلاحية الرابط',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+            content: Text(
+              'انتهت صلاحية رابط الملف "$fileName". يرجى تحديث الصفحة أو التواصل مع المعلم للحصول على رابط جديد.',
+              style: const TextStyle(fontSize: 14),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  _loadFiles(); // Refresh files to get new URLs
+                },
+                child: const Text(
+                  'تحديث الملفات',
+                  style: TextStyle(
+                    color: Color(0xFF0A84FF),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text(
+                  'إغلاق',
+                  style: TextStyle(
+                    color: Colors.grey,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

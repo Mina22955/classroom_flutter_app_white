@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:device_info_plus/device_info_plus.dart';
 import '../services/api_service.dart';
 
 class AuthProvider extends ChangeNotifier {
@@ -13,6 +14,7 @@ class AuthProvider extends ChangeNotifier {
   String? _token;
   String? _error;
   String? _pendingId;
+  String? _deviceToken;
 
   // Getters
   bool get isLoading => _isLoading;
@@ -21,6 +23,38 @@ class AuthProvider extends ChangeNotifier {
   String? get token => _token;
   String? get error => _error;
   String? get pendingId => _pendingId;
+  String? get deviceToken => _deviceToken;
+
+  // Generate unique device token
+  Future<String> _generateDeviceToken() async {
+    try {
+      final deviceInfo = DeviceInfoPlugin();
+      String deviceId = '';
+
+      try {
+        final androidInfo = await deviceInfo.androidInfo;
+        deviceId = '${androidInfo.model}_${androidInfo.id}';
+      } catch (e) {
+        try {
+          final iosInfo = await deviceInfo.iosInfo;
+          deviceId = '${iosInfo.model}_${iosInfo.identifierForVendor}';
+        } catch (e) {
+          deviceId = 'unknown_device_${DateTime.now().millisecondsSinceEpoch}';
+        }
+      }
+
+      // Create a unique token combining device info and timestamp
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final deviceToken = '${deviceId}_$timestamp';
+
+      print('AuthProvider: Generated device token: $deviceToken');
+      return deviceToken;
+    } catch (e) {
+      print('AuthProvider: Error generating device token: $e');
+      // Fallback to timestamp-based token
+      return 'device_${DateTime.now().millisecondsSinceEpoch}';
+    }
+  }
 
   // Login
   Future<bool> login({
@@ -31,9 +65,13 @@ class AuthProvider extends ChangeNotifier {
     _clearError();
 
     try {
+      // Generate device token
+      _deviceToken = await _generateDeviceToken();
+
       final response = await _apiService.login(
         email: email,
         password: password,
+        deviceToken: _deviceToken,
       );
 
       // Check if login was successful based on API response structure
@@ -50,6 +88,13 @@ class AuthProvider extends ChangeNotifier {
             'AuthProvider: Login successful, token: ${_token?.substring(0, 10)}...');
         return true;
       } else {
+        // Check for device conflict
+        if (response['code'] == 'DEVICE_CONFLICT') {
+          _setError('DEVICE_CONFLICT');
+          _setLoading(false);
+          return false;
+        }
+
         // Login failed - extract error message
         String errorMessage =
             response['message'] ?? response['error'] ?? 'فشل في تسجيل الدخول';
@@ -492,14 +537,72 @@ class AuthProvider extends ChangeNotifier {
     print('AuthProvider: Stored login data cleared');
   }
 
+  // Force login (for device conflict resolution)
+  Future<bool> forceLogin({
+    required String email,
+    required String password,
+    required String userId,
+  }) async {
+    _setLoading(true);
+    _clearError();
+
+    try {
+      // First, force logout from other device
+      await _apiService.forceLogout(userId: userId);
+
+      // Generate new device token
+      _deviceToken = await _generateDeviceToken();
+
+      // Try login again
+      final response = await _apiService.login(
+        email: email,
+        password: password,
+        deviceToken: _deviceToken,
+      );
+
+      if (response['accessToken'] != null && response['user'] != null) {
+        _token = response['accessToken'];
+        _user = response['user'];
+        _isAuthenticated = true;
+
+        // Save login data to secure storage
+        await _saveLoginData();
+
+        _setLoading(false);
+        print('AuthProvider: Force login successful');
+        return true;
+      } else {
+        String errorMessage =
+            response['message'] ?? response['error'] ?? 'فشل في تسجيل الدخول';
+        _setError(errorMessage);
+        _setLoading(false);
+        return false;
+      }
+    } catch (e) {
+      String errorMessage = e.toString();
+      if (errorMessage.startsWith('Exception: ')) {
+        errorMessage = errorMessage.substring(11);
+      }
+      _setError(errorMessage);
+      _setLoading(false);
+      return false;
+    }
+  }
+
   // Logout
   Future<void> logout() async {
     _setLoading(true);
 
     try {
-      await _apiService.logout();
+      if (_user != null && _deviceToken != null) {
+        await _apiService.logout(
+          userId: _user!['id'] ?? _user!['_id'],
+          deviceToken: _deviceToken!,
+        );
+      }
     } catch (e) {
       // Ignore logout errors
+      print('AuthProvider: Logout error: $e');
     }
 
     // Clear stored login data
@@ -507,6 +610,7 @@ class AuthProvider extends ChangeNotifier {
 
     _token = null;
     _user = null;
+    _deviceToken = null;
     _isAuthenticated = false;
     _clearError();
     _setLoading(false);

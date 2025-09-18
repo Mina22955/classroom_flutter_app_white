@@ -6,6 +6,7 @@ import '../../widgets/custom_button.dart';
 import '../../widgets/custom_text_field.dart';
 import '../../utils/signup_status_checker.dart';
 import '../../widgets/gradient_bg.dart';
+import '../../widgets/device_conflict_dialog.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -61,18 +62,48 @@ class _LoginScreenState extends State<LoginScreen> {
     if (success && mounted) {
       context.go('/plans');
     } else if (mounted) {
-      setState(() {
-        _errorMessage = authProvider.error ?? 'فشل في تسجيل الدخول';
-      });
-      // Auto-dismiss error after 3 seconds
-      Future.delayed(const Duration(seconds: 3), () {
-        if (mounted) {
-          setState(() {
-            _errorMessage = null;
-          });
-        }
-      });
+      // Check for device conflict
+      if (authProvider.error == 'DEVICE_CONFLICT') {
+        _showDeviceConflictDialog();
+      } else {
+        setState(() {
+          _errorMessage = authProvider.error ?? 'فشل في تسجيل الدخول';
+        });
+        // Auto-dismiss error after 3 seconds
+        Future.delayed(const Duration(seconds: 3), () {
+          if (mounted) {
+            setState(() {
+              _errorMessage = null;
+            });
+          }
+        });
+      }
     }
+  }
+
+  void _showDeviceConflictDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => DeviceConflictDialog(
+        onForceLogin: () async {
+          Navigator.of(context).pop();
+
+          // For force login, we need the user ID from the previous login attempt
+          // Since we don't have it, we'll need to modify the approach
+          // For now, let's show a message that they need to logout from the other device
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('يرجى تسجيل الخروج من الجهاز الآخر أولاً'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        },
+        onCancel: () {
+          Navigator.of(context).pop();
+        },
+      ),
+    );
   }
 
   @override
