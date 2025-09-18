@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/services.dart';
+import 'package:android_intent_plus/android_intent.dart';
+import 'dart:io' show Platform;
 import '../../widgets/gradient_bg.dart';
 
 class PaymentScreen extends StatefulWidget {
@@ -84,7 +86,16 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 ElevatedButton.icon(
                   onPressed: () async {
                     Navigator.of(context).pop();
-                    await _tryLaunch(uri, LaunchMode.externalApplication);
+                    if (Platform.isAndroid) {
+                      // Show Android chooser with available browsers
+                      final intent = AndroidIntent(
+                        action: 'action_view',
+                        data: normalized,
+                      );
+                      await intent.launchChooser('اختر المتصفح');
+                    } else {
+                      await _tryLaunch(uri, LaunchMode.externalApplication);
+                    }
                   },
                   icon: const Icon(Icons.open_in_browser),
                   label: const Text('فتح في المتصفح'),
@@ -92,15 +103,6 @@ class _PaymentScreenState extends State<PaymentScreen> {
                     backgroundColor: const Color(0xFF0A84FF),
                     foregroundColor: Colors.white,
                   ),
-                ),
-                const SizedBox(height: 10),
-                OutlinedButton.icon(
-                  onPressed: () async {
-                    Navigator.of(context).pop();
-                    await _tryLaunch(uri, LaunchMode.inAppBrowserView);
-                  },
-                  icon: const Icon(Icons.web_asset),
-                  label: const Text('فتح داخل التطبيق'),
                 ),
                 const SizedBox(height: 10),
                 TextButton.icon(
@@ -192,138 +194,137 @@ class _PaymentScreenState extends State<PaymentScreen> {
           title: null, // Remove the title
           centerTitle: true,
         ),
-        body: Center(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(
-                24, 40, 24, 24), // Reduced top padding
-            child: Column(
-              mainAxisAlignment:
-                  MainAxisAlignment.start, // Changed from center to start
-              children: [
-                const SizedBox(height: 60), // Add space to push content up
-                const Icon(
-                  Icons.payment,
-                  color: Color(0xFF0A84FF),
-                  size: 80,
-                ),
-                const SizedBox(height: 24),
-                const Text(
-                  'الدفع الآمن',
-                  style: TextStyle(
-                    color: Colors.black,
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
+        body: SafeArea(
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  const Icon(
+                    Icons.payment,
+                    color: Color(0xFF0A84FF),
+                    size: 80,
                   ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  'انقر على الزر أدناه لفتح صفحة الدفع الآمنة في المتصفح',
-                  style: TextStyle(
-                    color: Colors.black54,
-                    fontSize: 16,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 40),
-                ElevatedButton.icon(
-                  onPressed: () => _showOpenOptions(checkoutUrl),
-                  icon: const Icon(Icons.open_in_browser),
-                  label: const Text('فتح صفحة الدفع'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF0A84FF),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 40,
-                      vertical: 20,
+                  const SizedBox(height: 24),
+                  const Text(
+                    'الدفع الآمن',
+                    style: TextStyle(
+                      color: Colors.black,
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
                     ),
-                    shape: RoundedRectangleBorder(
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'انقر على الزر أدناه لفتح صفحة الدفع الآمنة في المتصفح',
+                    style: TextStyle(
+                      color: Colors.black54,
+                      fontSize: 16,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 40),
+                  ElevatedButton.icon(
+                    onPressed: () => _showOpenOptions(checkoutUrl),
+                    icon: const Icon(Icons.open_in_browser),
+                    label: const Text('فتح صفحة الدفع'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF0A84FF),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 40,
+                        vertical: 20,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF2F2F7),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF2F2F7),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Column(
-                    children: [
-                      const Text(
-                        'معلومات الدفع:',
-                        style: TextStyle(
-                          color: Colors.black,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      const Text(
-                        'سيتم فتح صفحة دفع آمنة من Stripe',
-                        style: TextStyle(
-                          color: Colors.black54,
-                          fontSize: 14,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 4),
-                      const Text(
-                        'بعد إتمام الدفع، سيتم تفعيل حسابك تلقائياً',
-                        style: TextStyle(
-                          color: Colors.black54,
-                          fontSize: 14,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 16),
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: const Color(0xFF0A84FF),
-                            width: 1,
+                    child: Column(
+                      children: [
+                        const Text(
+                          'معلومات الدفع:',
+                          style: TextStyle(
+                            color: Colors.black,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
-                        child: const Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'ملحوظة:',
-                              style: TextStyle(
-                                color: Color(0xFF0A84FF),
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            SizedBox(height: 8),
-                            Text(
-                              '1- تم تسجيل بياناتك بشكل مؤقت وفي حالة عدم إتمام الدفع في خلال 24 ساعة سيتم حذف البيانات',
-                              style: TextStyle(
-                                color: Colors.black87,
-                                fontSize: 13,
-                                height: 1.4,
-                              ),
-                            ),
-                            SizedBox(height: 6),
-                            Text(
-                              '2- تم إرسال رابط دفع لحساب الجيميل المسجل في حالة إغلاق هذه الصفحة',
-                              style: TextStyle(
-                                color: Colors.black87,
-                                fontSize: 13,
-                                height: 1.4,
-                              ),
-                            ),
-                          ],
+                        const SizedBox(height: 8),
+                        const Text(
+                          'سيتم فتح صفحة دفع آمنة من Stripe',
+                          style: TextStyle(
+                            color: Colors.black54,
+                            fontSize: 14,
+                          ),
+                          textAlign: TextAlign.center,
                         ),
-                      ),
-                    ],
+                        const SizedBox(height: 4),
+                        const Text(
+                          'بعد إتمام الدفع، سيتم تفعيل حسابك تلقائياً',
+                          style: TextStyle(
+                            color: Colors.black54,
+                            fontSize: 14,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 16),
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: const Color(0xFF0A84FF),
+                              width: 1,
+                            ),
+                          ),
+                          child: const Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'ملحوظة:',
+                                style: TextStyle(
+                                  color: Color(0xFF0A84FF),
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              SizedBox(height: 8),
+                              Text(
+                                '1- تم تسجيل بياناتك بشكل مؤقت وفي حالة عدم إتمام الدفع في خلال 24 ساعة سيتم حذف البيانات',
+                                style: TextStyle(
+                                  color: Colors.black87,
+                                  fontSize: 13,
+                                  height: 1.4,
+                                ),
+                              ),
+                              SizedBox(height: 6),
+                              Text(
+                                '2- تم إرسال رابط دفع لحساب الجيميل المسجل في حالة إغلاق هذه الصفحة',
+                                style: TextStyle(
+                                  color: Colors.black87,
+                                  fontSize: 13,
+                                  height: 1.4,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

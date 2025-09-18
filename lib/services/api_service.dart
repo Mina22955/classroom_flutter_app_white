@@ -14,6 +14,192 @@ class ApiService {
     await Future.delayed(const Duration(seconds: 1));
   }
 
+  // Get class files
+  Future<List<Map<String, dynamic>>> getClassFiles({
+    required String classId,
+    String? accessToken,
+  }) async {
+    try {
+      // Try multiple URL patterns to find the correct one
+      final urlPatterns = [
+        '$baseUrl/api/student/class/$classId/Allfiles',
+        '$baseUrl/api/student/classes/$classId/files',
+        '$baseUrl/api/student/classes/$classId/Allfiles',
+        '$baseUrl/api/student/$classId/files',
+        '$baseUrl/api/student/$classId/Allfiles',
+      ];
+
+      final headers = {
+        'Content-Type': 'application/json',
+        if (accessToken != null && accessToken.isNotEmpty)
+          'Authorization': 'Bearer $accessToken',
+      };
+
+      print('=== FILES API DEBUG ===');
+      print('Class ID: $classId');
+      print('Base URL: $baseUrl');
+      print(
+          'Token available: ${accessToken != null && accessToken.isNotEmpty}');
+      if (accessToken != null) {
+        print('Token preview: ${accessToken.substring(0, 10)}...');
+      }
+
+      for (int i = 0; i < urlPatterns.length; i++) {
+        final uri = Uri.parse(urlPatterns[i]);
+        print('Trying URL ${i + 1}: $uri');
+
+        try {
+          final response = await http.get(uri, headers: headers);
+          print('URL ${i + 1} - Status: ${response.statusCode}');
+          print('URL ${i + 1} - Body: ${response.body}');
+
+          if (response.statusCode == 200) {
+            print('✅ SUCCESS with URL ${i + 1}!');
+            final data = jsonDecode(response.body);
+            print('Parsed data: $data');
+
+            // Try different possible response formats
+            if (data is Map<String, dynamic>) {
+              if (data.containsKey('files')) {
+                final files = data['files'] as List<dynamic>;
+                print('Found ${files.length} files in response');
+                return files.cast<Map<String, dynamic>>();
+              } else if (data.containsKey('data') && data['data'] is List) {
+                final files = data['data'] as List<dynamic>;
+                print('Found ${files.length} files in data field');
+                return files.cast<Map<String, dynamic>>();
+              } else {
+                print('No files array found in response object');
+                print('Available keys: ${data.keys.toList()}');
+                return [];
+              }
+            } else if (data is List) {
+              print('Response is direct list with ${data.length} items');
+              return data.cast<Map<String, dynamic>>();
+            }
+            print('Unexpected response format');
+            return [];
+          } else if (response.statusCode == 404) {
+            print('❌ URL ${i + 1} - Not found (404)');
+          } else if (response.statusCode == 401) {
+            print('❌ URL ${i + 1} - Unauthorized (401)');
+          } else if (response.statusCode == 403) {
+            print('❌ URL ${i + 1} - Forbidden (403)');
+          } else {
+            print(
+                '❌ URL ${i + 1} - Error ${response.statusCode}: ${response.body}');
+          }
+        } catch (e) {
+          print('❌ URL ${i + 1} - Exception: $e');
+        }
+        print('---');
+      }
+
+      print('=== END FILES API DEBUG ===');
+      print('All URL patterns failed');
+      return [];
+    } catch (e) {
+      print('Exception in getClassFiles: $e');
+      return [];
+    }
+  }
+
+  // Get class notes
+  Future<List<Map<String, dynamic>>> getClassNotes({
+    required String classId,
+    String? accessToken,
+  }) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/student/classes/$classId/notes');
+      final headers = {
+        'Content-Type': 'application/json',
+        if (accessToken != null && accessToken.isNotEmpty)
+          'Authorization': 'Bearer $accessToken',
+      };
+
+      print('Making API call to: $uri');
+      print('Headers: $headers');
+
+      final response = await http.get(uri, headers: headers);
+
+      print('Response status: ${response.statusCode}');
+      print('Response body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        print('API Response for class notes: $data');
+
+        // Try different possible response formats
+        if (data is Map<String, dynamic>) {
+          if (data.containsKey('notes')) {
+            final notes = data['notes'] as List<dynamic>;
+            print('Extracted notes from response: $notes');
+            return notes.cast<Map<String, dynamic>>();
+          } else if (data.containsKey('data') && data['data'] is List) {
+            final notes = data['data'] as List<dynamic>;
+            print('Extracted notes from data field: $notes');
+            return notes.cast<Map<String, dynamic>>();
+          } else {
+            print('No notes array found in response object');
+            print('Available keys: ${data.keys.toList()}');
+            return [];
+          }
+        } else if (data is List) {
+          print('Response is direct list: $data');
+          return data.cast<Map<String, dynamic>>();
+        }
+        print('Unexpected response format');
+        return [];
+      } else {
+        print(
+            'Error fetching class notes: ${response.statusCode} - ${response.body}');
+        return [];
+      }
+    } catch (e) {
+      print('Exception fetching class notes: $e');
+      return [];
+    }
+  }
+
+  // Get student's joined classes
+  Future<List<Map<String, dynamic>>> getStudentClasses({
+    required String studentId,
+    String? accessToken,
+  }) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/student/$studentId/classes');
+      final headers = {
+        'Content-Type': 'application/json',
+        if (accessToken != null && accessToken.isNotEmpty)
+          'Authorization': 'Bearer $accessToken',
+      };
+
+      final response = await http.get(uri, headers: headers);
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        print('API Response for student classes: $data');
+        if (data is Map<String, dynamic> && data.containsKey('classes')) {
+          final classes = data['classes'] as List<dynamic>;
+          print('Extracted classes from response: $classes');
+          return classes.cast<Map<String, dynamic>>();
+        } else if (data is List) {
+          print('Response is direct list: $data');
+          return data.cast<Map<String, dynamic>>();
+        }
+        print('No classes found in response');
+        return [];
+      } else {
+        print(
+            'Error fetching student classes: ${response.statusCode} - ${response.body}');
+        return [];
+      }
+    } catch (e) {
+      print('Exception fetching student classes: $e');
+      return [];
+    }
+  }
+
   // Join class by code/id
   Future<Map<String, dynamic>> joinClass({
     required String classId,

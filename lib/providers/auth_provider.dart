@@ -71,6 +71,45 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
+  // Get student's joined classes
+  Future<List<Map<String, dynamic>>> getStudentClasses() async {
+    if (_user == null) {
+      print('AuthProvider: User is null, cannot fetch classes');
+      _setError('يرجى تسجيل الدخول أولاً');
+      return [];
+    }
+
+    try {
+      final rawUserId = _user!['id'] ?? _user!['_id'] ?? _user!['userId'];
+      print('AuthProvider: User data: $_user');
+      print('AuthProvider: Extracted user ID: $rawUserId');
+      print('AuthProvider: Token: ${_token?.substring(0, 10)}...');
+
+      if (rawUserId == null) {
+        print('AuthProvider: No user ID found in user data');
+        _setError('معرف الطالب غير متوفر');
+        return [];
+      }
+
+      print(
+          'AuthProvider: Calling API to fetch classes for student: $rawUserId');
+      final classes = await _apiService.getStudentClasses(
+        studentId: rawUserId.toString(),
+        accessToken: _token,
+      );
+      print('AuthProvider: Received classes: $classes');
+      return classes;
+    } catch (e) {
+      print('AuthProvider: Error fetching classes: $e');
+      String errorMessage = e.toString();
+      if (errorMessage.startsWith('Exception: ')) {
+        errorMessage = errorMessage.substring(11);
+      }
+      _setError(errorMessage);
+      return [];
+    }
+  }
+
   // Join class by id/code
   Future<Map<String, dynamic>?> joinClassById(String classId) async {
     if (_user == null) {

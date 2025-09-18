@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 import '../widgets/note_card.dart';
 import '../widgets/gradient_bg.dart';
+import '../widgets/secure_pdf_viewer.dart';
 import '../services/api_service.dart';
+import '../providers/auth_provider.dart';
 
 class ClassroomScreen extends StatefulWidget {
   final String classId;
@@ -25,7 +28,13 @@ class _ClassroomScreenState extends State<ClassroomScreen> {
   final TextEditingController _searchController = TextEditingController();
   final ApiService _apiService = ApiService();
   List<Map<String, dynamic>> _videos = [];
+  List<Map<String, dynamic>> _notes = [];
+  List<Map<String, dynamic>> _files = [];
   bool _isLoadingVideos = false;
+  bool _isLoadingNotes = false;
+  bool _isLoadingFiles = false;
+  bool _notesLoaded = false; // Track if notes have been loaded
+  bool _filesLoaded = false; // Track if files have been loaded
   // Notes filter: 0=All, 1=Last day, 2=Last week, 3=Last month
   int _notesFilter = 0;
 
@@ -42,6 +51,7 @@ class _ClassroomScreenState extends State<ClassroomScreen> {
   void initState() {
     super.initState();
     _loadVideos();
+    _loadNotes(); // Load notes when entering the class
   }
 
   Future<void> _loadVideos() async {
@@ -56,6 +66,60 @@ class _ClassroomScreenState extends State<ClassroomScreen> {
     }
   }
 
+  Future<void> _loadNotes() async {
+    print('Loading notes for classId: ${widget.classId}');
+    setState(() => _isLoadingNotes = true);
+    try {
+      // Get token from AuthProvider
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final token = authProvider.token;
+      print('Token available: ${token != null}');
+      print('Token preview: ${token?.substring(0, 10)}...');
+
+      final notes = await _apiService.getClassNotes(
+        classId: widget.classId,
+        accessToken: token,
+      );
+      print('Notes loaded: ${notes.length} notes');
+      print('Notes data: $notes');
+      setState(() {
+        _notes = notes;
+        _notesLoaded = true;
+      });
+    } catch (e) {
+      print('Error loading notes: $e');
+    } finally {
+      setState(() => _isLoadingNotes = false);
+    }
+  }
+
+  Future<void> _loadFiles() async {
+    print('Loading files for classId: ${widget.classId}');
+    setState(() => _isLoadingFiles = true);
+    try {
+      // Get token from AuthProvider
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final token = authProvider.token;
+      print('Token available: ${token != null}');
+      print('Token preview: ${token?.substring(0, 10)}...');
+
+      final files = await _apiService.getClassFiles(
+        classId: widget.classId,
+        accessToken: token,
+      );
+      print('Files loaded: ${files.length} files');
+      print('Files data: $files');
+      setState(() {
+        _files = files;
+        _filesLoaded = true;
+      });
+    } catch (e) {
+      print('Error loading files: $e');
+    } finally {
+      setState(() => _isLoadingFiles = false);
+    }
+  }
+
   // Build filtered items for current section based on the search query
   Widget _buildCurrentSectionList() {
     final String q = _searchController.text.trim();
@@ -63,30 +127,37 @@ class _ClassroomScreenState extends State<ClassroomScreen> {
     List<Map<String, dynamic>> items;
     if (_currentIndex == 0) {
       // الملاحظات (حائط ملاحظات - قراءة فقط)
-      items = [
-        {
-          'title': 'ملاحظة طويلة للاختبار',
-          'content':
-              'هذه ملاحظة تجريبية طويلة للتأكد من أن التصميم يتعامل مع النصوص الكبيرة بشكل صحيح. نريد أن نرى كيف يتم الالتفاف داخل الفقاعة والمحاذاة في الاتجاه من اليمين إلى اليسار. كذلك يجب التأكد من أن المسافات والسطور بين الجمل تبدو مريحة للقراءة ولا تخرج عن الحدود. في حال زاد طول النص كثيراً، ينبغي أن يواصل السطر التالي داخل نفس الفقاعة بدون كسر غير مرغوب. وأخيراً، نتأكد أن الأيقونة والزمن يبقيان في مكانهما بشكل سليم.',
-          'timestamp': '14:30 2025-09-10'
-        },
-        {
-          'title': 'ملاحظة من المعلم',
-          'content': 'أحسنتم في واجب الدرس الماضي. الرجاء مراجعة سؤال 3 جيداً.',
-          'timestamp': '10:30 2025-09-10'
-        },
-        {
-          'title': 'تنبيه',
-          'content':
-              'سيتم إجراء اختبار قصير في الحصة القادمة على الوحدة الأولى.',
-          'timestamp': '12:15 2025-09-10'
-        },
-        {
-          'title': 'مراجعة',
-          'content': 'اقرأ الملخص المرفق في الملفات قبل مشاهدة الفيديو التالي.',
-          'timestamp': '13:05 2025-09-10'
-        },
-      ];
+      if (_isLoadingNotes) {
+        return const Center(
+          child: CircularProgressIndicator(color: Color(0xFF0A84FF)),
+        );
+      }
+
+      // Convert API notes to the expected format
+      print('Processing ${_notes.length} notes from API');
+      items = _notes.map((note) {
+        print('Processing note: $note');
+        // Parse createdAt to format timestamp
+        String timestamp = 'غير محدد';
+        if (note['createdAt'] != null) {
+          try {
+            final date = DateTime.parse(note['createdAt']);
+            timestamp =
+                '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')} ${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+          } catch (e) {
+            print('Error parsing date: $e');
+          }
+        }
+
+        final processedNote = {
+          'title': 'ملاحظة',
+          'content': note['msg'] ?? 'لا يوجد محتوى',
+          'timestamp': timestamp,
+        };
+        print('Processed note: $processedNote');
+        return processedNote;
+      }).toList();
+      print('Final items count: ${items.length}');
 
       // Sort: newest first (timestamp format: HH:mm yyyy-MM-dd)
       int parseTwo(String s) => int.tryParse(s) ?? 0;
@@ -137,14 +208,21 @@ class _ClassroomScreenState extends State<ClassroomScreen> {
         return tb.compareTo(ta); // newest first
       });
     } else if (_currentIndex == 1) {
-      // الملفات
-      items = List.generate(
-          6,
-          (i) => {
-                'title': 'ملف رقم ${i + 1}',
-                'content': 'تفاصيل الملف والوصف المختصر.',
-                'file': 'material_${i + 1}.pdf',
-              });
+      // الملفات: استخدام البيانات من API
+      if (_isLoadingFiles) {
+        return const Center(
+          child: CircularProgressIndicator(color: Color(0xFF0A84FF)),
+        );
+      }
+      items = _files
+          .map((file) => {
+                'id': file['id'],
+                'title': file['name'] ?? 'ملف غير محدد',
+                'content': file['description'] ?? 'لا يوجد وصف',
+                'pdfUrl': file['pdfUrl'],
+                'expiresAt': file['expiresAt'],
+              })
+          .toList();
     } else if (_currentIndex == 2) {
       // الفيديوهات: استخدام البيانات من API
       if (_isLoadingVideos) {
@@ -186,128 +264,295 @@ class _ClassroomScreenState extends State<ClassroomScreen> {
     // Render lists per section
     if (_currentIndex == 0) {
       // Notes
+      if (items.isEmpty) {
+        return Directionality(
+          textDirection: TextDirection.rtl,
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.sticky_note_2_outlined,
+                  size: 64,
+                  color: Colors.grey[400],
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'لا توجد ملاحظات بعد',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey[600],
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'سيتم عرض الملاحظات هنا عندما ينشرها المعلم',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey[500],
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 24),
+                ElevatedButton.icon(
+                  onPressed: _loadNotes,
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('تحديث'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF0A84FF),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }
+
       return Directionality(
         textDirection: TextDirection.rtl,
-        child: ListView.separated(
-          padding: const EdgeInsets.all(16),
-          itemCount: items.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 10),
-          itemBuilder: (context, index) => NoteCard(
-            title: items[index]['title']!,
-            content: items[index]['content']!,
-            timestamp: items[index]['timestamp'] as String?,
-            showTitle: false,
-            // Student view: keep actions hidden
+        child: RefreshIndicator(
+          onRefresh: _loadNotes,
+          color: const Color(0xFF0A84FF),
+          child: ListView.separated(
+            padding: const EdgeInsets.all(16),
+            itemCount: items.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 10),
+            itemBuilder: (context, index) => NoteCard(
+              title: items[index]['title']!,
+              content: items[index]['content']!,
+              timestamp: items[index]['timestamp'] as String?,
+              showTitle: false,
+              // Student view: keep actions hidden
+            ),
           ),
         ),
       );
     } else if (_currentIndex == 1) {
-      // Files: same card style as Exams but without deadline and without submit button
+      // Files: API data with PDF viewing
+      if (items.isEmpty) {
+        return Directionality(
+          textDirection: TextDirection.rtl,
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.folder_outlined,
+                  size: 64,
+                  color: Colors.grey[400],
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'لا توجد ملفات بعد',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey[600],
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'سيتم عرض الملفات هنا عندما يرفعها المعلم',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey[500],
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 24),
+                ElevatedButton.icon(
+                  onPressed: _loadFiles,
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('تحديث'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF0A84FF),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                // Debug button to test API
+                ElevatedButton.icon(
+                  onPressed: () async {
+                    final authProvider =
+                        Provider.of<AuthProvider>(context, listen: false);
+                    final token = authProvider.token;
+                    print('=== MANUAL API TEST ===');
+                    print('Class ID: ${widget.classId}');
+                    print('Class Name: ${widget.className}');
+                    print(
+                        'Token: ${token != null ? 'Available' : 'Not available'}');
+                    if (token != null) {
+                      print('Token preview: ${token.substring(0, 10)}...');
+                    }
+                    await _loadFiles();
+                  },
+                  icon: const Icon(Icons.bug_report),
+                  label: const Text('اختبار API'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orange,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }
+
       return Directionality(
         textDirection: TextDirection.rtl,
-        child: ListView.separated(
-          padding: const EdgeInsets.all(16),
-          itemCount: items.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 10),
-          itemBuilder: (context, index) {
-            final file = items[index];
-            final fileKey = 'file_${file['title']}';
-            final isExpanded = _expandedStates[fileKey] ?? false;
+        child: RefreshIndicator(
+          onRefresh: _loadFiles,
+          color: const Color(0xFF0A84FF),
+          child: ListView.separated(
+            padding: const EdgeInsets.all(16),
+            itemCount: items.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 10),
+            itemBuilder: (context, index) {
+              final file = items[index];
+              final fileKey = 'file_${file['id']}';
+              final isExpanded = _expandedStates[fileKey] ?? false;
 
-            return Theme(
-              data: Theme.of(context).copyWith(
-                dividerColor: Colors.transparent,
-                splashColor: Colors.black12,
-                hoverColor: Colors.black12,
-              ),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: isExpanded
-                        ? const Color(0xFF0A84FF)
-                        : Colors.black.withOpacity(0.08),
-                    width: isExpanded ? 2 : 1,
-                  ),
+              return Theme(
+                data: Theme.of(context).copyWith(
+                  dividerColor: Colors.transparent,
+                  splashColor: Colors.black12,
+                  hoverColor: Colors.black12,
                 ),
-                child: ExpansionTile(
-                  collapsedIconColor: const Color(0xFF0A84FF),
-                  iconColor: const Color(0xFF0A84FF),
-                  tilePadding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                  onExpansionChanged: (expanded) {
-                    setState(() {
-                      _expandedStates[fileKey] = expanded;
-                    });
-                  },
-                  title: Text(
-                    file['title']!,
-                    style: TextStyle(
-                      color:
-                          isExpanded ? const Color(0xFF0A84FF) : Colors.black,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: isExpanded
+                          ? const Color(0xFF0A84FF)
+                          : Colors.black.withOpacity(0.08),
+                      width: isExpanded ? 2 : 1,
                     ),
                   ),
-                  subtitle: Padding(
-                    padding: const EdgeInsets.only(top: 6),
-                    child: Text(
-                      file['content']!,
-                      style: const TextStyle(
-                          color: Color(0xFF6B7280), fontSize: 13),
-                    ),
-                  ),
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF2F2F7),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                            color: Colors.black.withOpacity(0.06), width: 1),
+                  child: ExpansionTile(
+                    collapsedIconColor: const Color(0xFF0A84FF),
+                    iconColor: const Color(0xFF0A84FF),
+                    tilePadding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 12),
+                    childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                    onExpansionChanged: (expanded) {
+                      setState(() {
+                        _expandedStates[fileKey] = expanded;
+                      });
+                    },
+                    title: Text(
+                      file['title']!,
+                      style: TextStyle(
+                        color:
+                            isExpanded ? const Color(0xFF0A84FF) : Colors.black,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
                       ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.insert_drive_file,
-                              color: Color(0xFF0A84FF)),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              file['file']!,
-                              style: const TextStyle(
-                                  color: Colors.black, fontSize: 14),
-                              overflow: TextOverflow.ellipsis,
+                    ),
+                    subtitle: Padding(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: Text(
+                        file['content']!,
+                        style: const TextStyle(
+                            color: Color(0xFF6B7280), fontSize: 13),
+                      ),
+                    ),
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF2F2F7),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                              color: Colors.black.withOpacity(0.06), width: 1),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.picture_as_pdf,
+                                color: Color(0xFFE74C3C)),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                '${file['title']}.pdf',
+                                style: const TextStyle(
+                                    color: Colors.black, fontSize: 14),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(
+                                  colors: [
+                                    Color(0xFF0A84FF),
+                                    Color(0xFF007AFF)
+                                  ],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Text(
+                                'PDF',
+                                style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600),
+                              ),
+                            )
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      // Open PDF button
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: SizedBox(
+                          height: 42,
+                          child: TextButton.icon(
+                            onPressed: () =>
+                                _openPdf(file['pdfUrl']!, file['title']!),
+                            icon: const Icon(Icons.visibility,
+                                color: Color(0xFF0A84FF)),
+                            label: const Text(
+                              'فتح الملف',
+                              style: TextStyle(
+                                color: Color(0xFF0A84FF),
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            style: TextButton.styleFrom(
+                              foregroundColor: const Color(0xFF0A84FF),
+                              side: const BorderSide(
+                                  color: Color(0xFF0A84FF), width: 1.5),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12)),
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 16),
                             ),
                           ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                colors: [Color(0xFF0A84FF), Color(0xFF007AFF)],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                              ),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: const Text(
-                              'ملف',
-                              style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600),
-                            ),
-                          )
-                        ],
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            );
-          },
+              );
+            },
+          ),
         ),
       );
     }
@@ -597,7 +842,13 @@ class _ClassroomScreenState extends State<ClassroomScreen> {
                 currentIndex: _currentIndex,
                 onTap: (i) {
                   setState(() => _currentIndex = i);
-                  if (i == 2) {
+                  if (i == 0 && !_notesLoaded) {
+                    // Notes tab - only load if not already loaded
+                    _loadNotes();
+                  } else if (i == 1 && !_filesLoaded) {
+                    // Files tab - only load if not already loaded
+                    _loadFiles();
+                  } else if (i == 2) {
                     // Videos tab
                     _loadVideos();
                   }
@@ -637,29 +888,6 @@ class _ClassroomScreenState extends State<ClassroomScreen> {
     final minutes = seconds ~/ 60;
     final remainingSeconds = seconds % 60;
     return '${minutes.toString().padLeft(2, '0')}:${remainingSeconds.toString().padLeft(2, '0')}';
-  }
-
-  Widget _buildFilterChip(int value, String label) {
-    final bool selected = _notesFilter == value;
-    return ChoiceChip(
-      label: Text(
-        label,
-        style: TextStyle(
-          color: selected ? Colors.black : const Color(0xFF0A84FF),
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-      selected: selected,
-      onSelected: (_) => setState(() => _notesFilter = value),
-      selectedColor: const Color(0xFF0A84FF),
-      backgroundColor: Colors.transparent,
-      shape: StadiumBorder(
-        side: BorderSide(
-          color: const Color(0xFF0A84FF).withOpacity(0.9),
-          width: 1.3,
-        ),
-      ),
-    );
   }
 
   Widget _buildVideoCard(Map<String, dynamic> video) {
@@ -796,6 +1024,17 @@ class _ClassroomScreenState extends State<ClassroomScreen> {
     // TODO: Implement fullscreen video player
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('تشغيل الفيديو في وضع ملء الشاشة: $videoUrl')),
+    );
+  }
+
+  void _openPdf(String pdfUrl, String fileName) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => SecurePdfViewer(
+          pdfUrl: pdfUrl,
+          fileName: fileName,
+        ),
+      ),
     );
   }
 }
