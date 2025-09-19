@@ -3,9 +3,8 @@ import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter/services.dart';
 import '../providers/auth_provider.dart';
-import '../widgets/student_card.dart';
+import '../services/api_service.dart';
 import '../widgets/class_card.dart';
-import '../widgets/custom_button.dart';
 import '../widgets/gradient_bg.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -29,8 +28,8 @@ class _HomeScreenState extends State<HomeScreen> {
     _classIdController.addListener(() {
       if (mounted) setState(() {});
     });
-    // Load joined classes when screen initializes
-    _loadJoinedClasses();
+    // Load joined classes asynchronously without blocking the UI
+    Future.microtask(() => _loadJoinedClasses());
   }
 
   Future<void> _loadJoinedClasses() async {
@@ -256,7 +255,10 @@ class _HomeScreenState extends State<HomeScreen> {
                             studentName: user?['name'] ?? 'الطالب',
                             isSubscribed: true,
                             renewalDate: '2025-12-31',
-                            onProfileTap: () => context.push('/profile'),
+                            onProfileTap: () {
+                              // Immediate navigation with no delay
+                              context.push('/profile');
+                            },
                             onLogoutTap: () =>
                                 _showLogoutConfirmation(context, authProvider),
                           ),
@@ -446,6 +448,10 @@ class _HomeScreenState extends State<HomeScreen> {
                                                     textAlignVertical:
                                                         TextAlignVertical
                                                             .center,
+                                                    style: const TextStyle(
+                                                      fontSize:
+                                                          13, // Smaller font
+                                                    ),
                                                     decoration: InputDecoration(
                                                       filled: true,
                                                       fillColor: const Color(
@@ -456,12 +462,14 @@ class _HomeScreenState extends State<HomeScreen> {
                                                           const TextStyle(
                                                         color:
                                                             Color(0xFF9CA3AF),
-                                                        fontSize: 15,
+                                                        fontSize:
+                                                            13, // Smaller hint font
                                                       ),
                                                       contentPadding:
                                                           const EdgeInsets
                                                               .symmetric(
-                                                              horizontal: 14),
+                                                              horizontal: 14,
+                                                              vertical: 16),
                                                       border:
                                                           OutlineInputBorder(
                                                         borderRadius:
@@ -502,8 +510,13 @@ class _HomeScreenState extends State<HomeScreen> {
                                                           Icons.class_,
                                                           color: Color(
                                                               0xFF0A84FF)),
-                                                      suffixIcon: SizedBox(
-                                                        width: 92,
+                                                      suffixIcon: Container(
+                                                        width:
+                                                            40, // Further reduced width
+                                                        constraints:
+                                                            const BoxConstraints(
+                                                          maxWidth: 40,
+                                                        ),
                                                         child: Row(
                                                           mainAxisAlignment:
                                                               MainAxisAlignment
@@ -511,31 +524,6 @@ class _HomeScreenState extends State<HomeScreen> {
                                                           mainAxisSize:
                                                               MainAxisSize.min,
                                                           children: [
-                                                            IconButton(
-                                                              tooltip: 'لصق',
-                                                              icon: const Icon(
-                                                                  Icons
-                                                                      .paste_rounded,
-                                                                  color: Color(
-                                                                      0xFF6B7280)),
-                                                              onPressed:
-                                                                  () async {
-                                                                final data =
-                                                                    await Clipboard.getData(
-                                                                        Clipboard
-                                                                            .kTextPlain);
-                                                                if (data?.text !=
-                                                                    null) {
-                                                                  _classIdController
-                                                                          .text =
-                                                                      data!
-                                                                          .text!
-                                                                          .trim();
-                                                                  setState(
-                                                                      () {});
-                                                                }
-                                                              },
-                                                            ),
                                                             if (_classIdController
                                                                 .text
                                                                 .isNotEmpty)
@@ -545,7 +533,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                                                     Icons
                                                                         .clear_rounded,
                                                                     color: Color(
-                                                                        0xFF9CA3AF)),
+                                                                        0xFF9CA3AF),
+                                                                    size: 16),
                                                                 onPressed: () {
                                                                   _classIdController
                                                                       .clear();
@@ -560,29 +549,89 @@ class _HomeScreenState extends State<HomeScreen> {
                                                   ),
                                                 ),
                                               ),
-                                              const SizedBox(width: 10),
-                                              SizedBox(
+                                              const SizedBox(width: 8),
+                                              // Icon button instead of text button
+                                              Container(
                                                 height: 54,
-                                                width: 132,
-                                                child: CustomButton(
-                                                  text: _isJoiningClass
-                                                      ? 'جارٍ الانضمام'
-                                                      : 'انضمام',
-                                                  onPressed: _classIdController
+                                                width: 54,
+                                                decoration: BoxDecoration(
+                                                  gradient: _classIdController
+                                                          .text
+                                                          .trim()
+                                                          .isEmpty
+                                                      ? LinearGradient(
+                                                          colors: [
+                                                            Colors.grey[300]!,
+                                                            Colors.grey[400]!
+                                                          ],
+                                                          begin:
+                                                              Alignment.topLeft,
+                                                          end: Alignment
+                                                              .bottomRight,
+                                                        )
+                                                      : const LinearGradient(
+                                                          colors: [
+                                                            Color(0xFF0A84FF),
+                                                            Color(0xFF007AFF)
+                                                          ],
+                                                          begin:
+                                                              Alignment.topLeft,
+                                                          end: Alignment
+                                                              .bottomRight,
+                                                        ),
+                                                  borderRadius:
+                                                      BorderRadius.circular(14),
+                                                  boxShadow: _classIdController
                                                           .text
                                                           .trim()
                                                           .isEmpty
                                                       ? null
-                                                      : _handleJoinClass,
-                                                  isLoading: _isJoiningClass,
-                                                  backgroundGradient:
-                                                      const LinearGradient(
-                                                    colors: [
-                                                      Color(0xFF0A84FF),
-                                                      Color(0xFF007AFF)
-                                                    ],
-                                                    begin: Alignment.topLeft,
-                                                    end: Alignment.bottomRight,
+                                                      : [
+                                                          BoxShadow(
+                                                            color: const Color(
+                                                                    0xFF0A84FF)
+                                                                .withOpacity(
+                                                                    0.25),
+                                                            blurRadius: 8,
+                                                            offset:
+                                                                const Offset(
+                                                                    0, 4),
+                                                          ),
+                                                        ],
+                                                ),
+                                                child: Material(
+                                                  color: Colors.transparent,
+                                                  child: InkWell(
+                                                    onTap: _classIdController
+                                                            .text
+                                                            .trim()
+                                                            .isEmpty
+                                                        ? null
+                                                        : _isJoiningClass
+                                                            ? null
+                                                            : _handleJoinClass,
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            14),
+                                                    child: Center(
+                                                      child: _isJoiningClass
+                                                          ? const SizedBox(
+                                                              width: 20,
+                                                              height: 20,
+                                                              child:
+                                                                  CircularProgressIndicator(
+                                                                color: Colors
+                                                                    .white,
+                                                                strokeWidth: 2,
+                                                              ),
+                                                            )
+                                                          : const Icon(
+                                                              Icons.add_rounded,
+                                                              color:
+                                                                  Colors.white,
+                                                              size: 24,
+                                                            ),
+                                                    ),
                                                   ),
                                                 ),
                                               ),
@@ -649,20 +698,27 @@ class _HomeScreenState extends State<HomeScreen> {
                                           const SizedBox(height: 12),
                                       itemBuilder: (context, index) {
                                         final klass = _joinedClasses[index];
+                                        print(
+                                            'HomeScreen: Building ClassCard for ${klass['name']} with status: ${klass['status']}');
                                         return ClassCard(
                                           className:
                                               klass['name']?.toString() ??
                                                   'كلاس',
-                                          onTap: () => context.push(
-                                            '/classroom',
-                                            extra: {
-                                              'id':
-                                                  klass['id']?.toString() ?? '',
-                                              'name':
-                                                  klass['name']?.toString() ??
-                                                      'كلاس',
-                                            },
-                                          ),
+                                          status: klass['status']?.toString() ??
+                                              'active',
+                                          onTap: () {
+                                            // Immediate navigation with no delay
+                                            context.push(
+                                              '/classroom',
+                                              extra: {
+                                                'id': klass['id']?.toString() ??
+                                                    '',
+                                                'name':
+                                                    klass['name']?.toString() ??
+                                                        'كلاس',
+                                              },
+                                            );
+                                          },
                                         );
                                       },
                                     ),
@@ -852,18 +908,24 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Row(
                 children: [
                   Expanded(
-                    child: InkWell(
-                      onTap: onProfileTap,
-                      borderRadius: const BorderRadius.only(
-                        topLeft: Radius.circular(16),
-                        bottomLeft: Radius.circular(16),
-                      ),
-                      child: Container(
-                        height: double.infinity,
-                        decoration: const BoxDecoration(
-                          borderRadius: BorderRadius.only(
-                            topLeft: Radius.circular(16),
-                            bottomLeft: Radius.circular(16),
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: onProfileTap,
+                        borderRadius: const BorderRadius.only(
+                          topLeft: Radius.circular(16),
+                          bottomLeft: Radius.circular(16),
+                        ),
+                        splashColor: const Color(0xFF0A84FF).withOpacity(0.1),
+                        highlightColor:
+                            const Color(0xFF0A84FF).withOpacity(0.05),
+                        child: Container(
+                          height: double.infinity,
+                          decoration: const BoxDecoration(
+                            borderRadius: BorderRadius.only(
+                              topLeft: Radius.circular(16),
+                              bottomLeft: Radius.circular(16),
+                            ),
                           ),
                         ),
                       ),
@@ -967,10 +1029,89 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 child: TextButton(
                   onPressed: () async {
+                    // Close confirmation dialog first
                     Navigator.of(context).pop();
-                    await authProvider.logout();
+
+                    // Show loading dialog
+                    showDialog(
+                      context: context,
+                      barrierDismissible: false,
+                      builder: (BuildContext context) {
+                        return Directionality(
+                          textDirection: TextDirection.rtl,
+                          child: AlertDialog(
+                            backgroundColor: const Color(0xFF1C1C1E),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            content: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const CircularProgressIndicator(
+                                  color: Color(0xFF0A84FF),
+                                ),
+                                const SizedBox(height: 16),
+                                const Text(
+                                  'جاري تسجيل الخروج...',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                const Text(
+                                  'يرجى الانتظار',
+                                  style: TextStyle(
+                                    color: Colors.white70,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    );
+
+                    // Perform logout process with immediate execution
+                    print('HomeScreen: Starting immediate logout...');
+
+                    // Store user data before clearing for server logout
+                    final userData = authProvider.user;
+                    final deviceToken = authProvider.deviceToken;
+
+                    // Clear local state immediately
+                    await authProvider.quickLogout();
+
+                    // Close loading dialog immediately
                     if (context.mounted) {
+                      Navigator.of(context).pop();
+                    }
+
+                    // Navigate to login immediately
+                    if (context.mounted) {
+                      print('HomeScreen: Navigating to login immediately');
                       context.go('/login');
+                    }
+
+                    // Try server logout in background (don't wait for it)
+                    if (userData != null && deviceToken != null) {
+                      Future.microtask(() async {
+                        try {
+                          print(
+                              'HomeScreen: Attempting background server logout...');
+                          final apiService = ApiService();
+                          await apiService.logout(
+                            userId: userData['id'] ?? userData['_id'],
+                            deviceToken: deviceToken,
+                          );
+                          print(
+                              'HomeScreen: Background server logout completed');
+                        } catch (e) {
+                          print(
+                              'HomeScreen: Background server logout failed: $e');
+                        }
+                      });
                     }
                   },
                   child: const Text(

@@ -60,7 +60,7 @@ class _LoginScreenState extends State<LoginScreen> {
     );
 
     if (success && mounted) {
-      context.go('/plans');
+      context.go('/home');
     } else if (mounted) {
       // Check for device conflict
       if (authProvider.error == 'DEVICE_CONFLICT') {

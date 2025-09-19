@@ -32,16 +32,6 @@ class ProfileInfoRow extends StatelessWidget {
               ),
               const SizedBox(width: 12),
             ],
-            SizedBox(
-              width: 110,
-              child: Text(
-                label,
-                style: const TextStyle(
-                  color: Color(0xFF6B7280),
-                  fontSize: 14,
-                ),
-              ),
-            ),
             Expanded(
               child: Text(
                 value,

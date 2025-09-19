@@ -19,11 +19,14 @@ import '../screens/debug/api_test_screen.dart';
 class AppRouter {
   static final GoRouter router = GoRouter(
     initialLocation: '/login',
-    redirect: (context, state) async {
+    redirect: (context, state) {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
 
-      // Load stored login data on app startup
-      await authProvider.loadStoredLoginData();
+      // Only load stored data if not already loaded (first time)
+      if (!authProvider.isAuthenticated && authProvider.user == null) {
+        // Load stored login data asynchronously without blocking navigation
+        Future.microtask(() => authProvider.loadStoredLoginData());
+      }
 
       final isAuthenticated = authProvider.isAuthenticated;
       final isLoginRoute = state.uri.path == '/login';
@@ -34,7 +37,6 @@ class AppRouter {
       final isResetPasswordRoute = state.uri.path == '/reset-password';
       final isPlansRoute = state.uri.path == '/plans';
       final isPaymentRoute = state.uri.path == '/payment';
-      // final isHomeRoute = state.uri.path == '/home';
 
       // If user is authenticated and trying to access auth screens, redirect to home
       if (isAuthenticated &&

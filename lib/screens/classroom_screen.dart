@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:file_picker/file_picker.dart';
 import '../widgets/note_card.dart';
 import '../widgets/gradient_bg.dart';
 import '../widgets/secure_pdf_viewer.dart';
@@ -30,11 +31,14 @@ class _ClassroomScreenState extends State<ClassroomScreen> {
   List<Map<String, dynamic>> _videos = [];
   List<Map<String, dynamic>> _notes = [];
   List<Map<String, dynamic>> _files = [];
+  List<Map<String, dynamic>> _tasks = [];
   bool _isLoadingVideos = false;
   bool _isLoadingNotes = false;
   bool _isLoadingFiles = false;
+  bool _isLoadingTasks = false;
   bool _notesLoaded = false; // Track if notes have been loaded
   bool _filesLoaded = false; // Track if files have been loaded
+  bool _tasksLoaded = false; // Track if tasks have been loaded
   // Notes filter: 0=All, 1=Last day, 2=Last week, 3=Last month
   int _notesFilter = 0;
 
@@ -50,8 +54,11 @@ class _ClassroomScreenState extends State<ClassroomScreen> {
   @override
   void initState() {
     super.initState();
-    _loadVideos();
-    _loadNotes(); // Load notes when entering the class
+    // Load data asynchronously without blocking the UI
+    Future.microtask(() {
+      _loadVideos();
+      _loadNotes(); // Load notes when entering the class
+    });
   }
 
   Future<void> _loadVideos() async {
@@ -117,6 +124,33 @@ class _ClassroomScreenState extends State<ClassroomScreen> {
       print('Error loading files: $e');
     } finally {
       setState(() => _isLoadingFiles = false);
+    }
+  }
+
+  Future<void> _loadTasks() async {
+    print('Loading tasks for classId: ${widget.classId}');
+    setState(() => _isLoadingTasks = true);
+    try {
+      // Get token from AuthProvider
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final token = authProvider.token;
+      print('Token available: ${token != null}');
+      print('Token preview: ${token?.substring(0, 10)}...');
+
+      final tasks = await _apiService.getClassTasks(
+        classId: widget.classId,
+        accessToken: token,
+      );
+      print('Tasks loaded: ${tasks.length} tasks');
+      print('Tasks data: $tasks');
+      setState(() {
+        _tasks = tasks;
+        _tasksLoaded = true;
+      });
+    } catch (e) {
+      print('Error loading tasks: $e');
+    } finally {
+      setState(() => _isLoadingTasks = false);
     }
   }
 
@@ -242,16 +276,26 @@ class _ClassroomScreenState extends State<ClassroomScreen> {
               })
           .toList();
     } else {
-      // الامتحانات: كل عنصر يحتوي أيضاً على اسم ملف PDF افتراضي وموعد نهائي
-      items = List.generate(
-        3,
-        (i) => {
-          'title': 'امتحان الوحدة ${i + 1}',
-          'content': 'تعليمات عامة ووقت الامتحان (بيانات افتراضية).',
-          'pdf': 'exam_unit_${i + 1}.pdf',
-          'deadline': '2025-12-${(20 + i).toString().padLeft(2, '0')}',
-        },
-      );
+      // الامتحانات: استخدام البيانات من API
+      if (_isLoadingTasks) {
+        return const Center(
+          child: CircularProgressIndicator(color: Color(0xFF0A84FF)),
+        );
+      }
+      items = _tasks
+          .map((task) => {
+                'id': task['id'],
+                'title': task['title'] ?? 'امتحان غير محدد',
+                'content': task['content'] ?? 'لا يوجد وصف',
+                'pdfUrl': task['pdfUrl'],
+                'expiresAt': task['expiresAt'],
+                'isExpired': task['isExpired'] ?? false,
+                'expiresAtFormatted': task['expiresAtFormatted'],
+                'deadline': task['deadline'] ?? 'غير محدد',
+                'pdf':
+                    '${task['title']}.pdf', // For compatibility with existing UI
+              })
+          .toList();
     }
 
     if (q.isNotEmpty) {
@@ -614,168 +658,349 @@ class _ClassroomScreenState extends State<ClassroomScreen> {
     }
 
     // Exams: expandable cards showing teacher PDF and a submit button
-    return Directionality(
-      textDirection: TextDirection.rtl,
-      child: ListView.separated(
-        padding: const EdgeInsets.all(16),
-        itemCount: items.length,
-        separatorBuilder: (_, __) => const SizedBox(height: 10),
-        itemBuilder: (context, index) {
-          final exam = items[index];
-          final examKey = 'exam_${exam['title']}';
-          final isExpanded = _expandedStates[examKey] ?? false;
-
-          return Theme(
-            data: Theme.of(context).copyWith(
-              dividerColor: Colors.transparent,
-              splashColor: Colors.black12,
-              hoverColor: Colors.black12,
-            ),
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: isExpanded
-                      ? const Color(0xFF0A84FF)
-                      : Colors.black.withOpacity(0.08),
-                  width: isExpanded ? 2 : 1,
+    if (items.isEmpty) {
+      return Directionality(
+        textDirection: TextDirection.rtl,
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.assignment_outlined,
+                size: 64,
+                color: Colors.grey[400],
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'لا توجد امتحانات بعد',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.grey[600],
                 ),
               ),
-              child: ExpansionTile(
-                collapsedIconColor: const Color(0xFF0A84FF),
-                iconColor: const Color(0xFF0A84FF),
-                tilePadding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                onExpansionChanged: (expanded) {
-                  setState(() {
-                    _expandedStates[examKey] = expanded;
-                  });
-                },
-                title: Text(
-                  exam['title']!,
-                  style: TextStyle(
-                    color: isExpanded ? const Color(0xFF0A84FF) : Colors.black,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
+              const SizedBox(height: 8),
+              Text(
+                'سيتم عرض الامتحانات هنا عندما ينشرها المعلم',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey[500],
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton.icon(
+                onPressed: _loadTasks,
+                icon: const Icon(Icons.refresh),
+                label: const Text('تحديث'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF0A84FF),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                subtitle: Padding(
-                  padding: const EdgeInsets.only(top: 6),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        exam['content']!,
-                        style: const TextStyle(
-                            color: Color(0xFF6B7280), fontSize: 13),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: RefreshIndicator(
+        onRefresh: _loadTasks,
+        color: const Color(0xFF0A84FF),
+        child: ListView.separated(
+          padding: const EdgeInsets.all(16),
+          itemCount: items.length,
+          separatorBuilder: (_, __) => const SizedBox(height: 10),
+          itemBuilder: (context, index) {
+            final exam = items[index];
+            final examKey = 'exam_${exam['id']}';
+            final isExpanded = _expandedStates[examKey] ?? false;
+
+            return Theme(
+              data: Theme.of(context).copyWith(
+                dividerColor: Colors.transparent,
+                splashColor: Colors.black12,
+                hoverColor: Colors.black12,
+              ),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: isExpanded
+                        ? const Color(0xFF0A84FF)
+                        : Colors.black.withOpacity(0.08),
+                    width: isExpanded ? 2 : 1,
+                  ),
+                ),
+                child: ExpansionTile(
+                  collapsedIconColor: const Color(0xFF0A84FF),
+                  iconColor: const Color(0xFF0A84FF),
+                  tilePadding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                  onExpansionChanged: (expanded) {
+                    setState(() {
+                      _expandedStates[examKey] = expanded;
+                    });
+                  },
+                  title: Text(
+                    exam['title']!,
+                    style: TextStyle(
+                      color:
+                          isExpanded ? const Color(0xFF0A84FF) : Colors.black,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  subtitle: Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          exam['content']!,
+                          style: const TextStyle(
+                              color: Color(0xFF6B7280), fontSize: 13),
+                        ),
+                        const SizedBox(height: 6),
+                        if (exam['isExpired'] == true) ...[
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.warning_amber_rounded,
+                                size: 16,
+                                color: Colors.orange,
+                              ),
+                              const SizedBox(width: 6),
+                              const Text(
+                                'انتهت صلاحية الامتحان',
+                                style: TextStyle(
+                                  color: Colors.orange,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ] else if (exam['expiresAtFormatted'] != null) ...[
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.schedule,
+                                  size: 16, color: Color(0xFF0A84FF)),
+                              const SizedBox(width: 6),
+                              Text(
+                                'ينتهي: ${_formatExpirationDate(exam['expiresAtFormatted'])}',
+                                style: const TextStyle(
+                                  color: Color(0xFF6B7280),
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ] else ...[
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.schedule,
+                                  size: 16, color: Color(0xFF0A84FF)),
+                              const SizedBox(width: 6),
+                              Text(
+                                'تاريخ النشر: ${exam['deadline']}',
+                                style: const TextStyle(
+                                  color: Color(0xFF6B7280),
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  children: [
+                    // Instructions for PDF viewing
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      margin: const EdgeInsets.only(bottom: 8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF0A84FF).withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: const Color(0xFF0A84FF).withOpacity(0.3),
+                          width: 1,
+                        ),
                       ),
-                      const SizedBox(height: 6),
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
+                      child: Row(
                         children: [
-                          const Icon(Icons.schedule,
-                              size: 16, color: Color(0xFF0A84FF)),
-                          const SizedBox(width: 6),
-                          Text(
-                            'آخر موعد: ${exam['deadline']}',
-                            style: const TextStyle(
-                              color: Color(0xFF6B7280),
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
+                          const Icon(
+                            Icons.info_outline,
+                            color: Color(0xFF0A84FF),
+                            size: 16,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'انقر على ملف PDF لعرض الامتحان',
+                              style: TextStyle(
+                                color: const Color(0xFF0A84FF),
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                              ),
                             ),
                           ),
                         ],
                       ),
-                    ],
-                  ),
-                ),
-                children: [
-                  // Teacher uploaded PDF (display only)
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF2F2F7),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                          color: Colors.black.withOpacity(0.06), width: 1),
                     ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.picture_as_pdf,
-                            color: Color(0xFFE74C3C)),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            exam['pdf']!,
-                            style: const TextStyle(
-                                color: Colors.black, fontSize: 14),
-                            overflow: TextOverflow.ellipsis,
-                          ),
+                    // Teacher uploaded PDF (clickable to open)
+                    GestureDetector(
+                      onTap: exam['isExpired'] == true
+                          ? () => _showExpiredDialog(exam['title']!)
+                          : () => _openPdf(exam['pdfUrl']!, exam['title']!),
+                      child: Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: exam['isExpired'] == true
+                              ? Colors.orange.withOpacity(0.1)
+                              : const Color(0xFFF2F2F7),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                              color: exam['isExpired'] == true
+                                  ? Colors.orange.withOpacity(0.3)
+                                  : const Color(0xFF0A84FF).withOpacity(0.2),
+                              width: 1.5),
                         ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFF0A84FF), Color(0xFF007AFF)],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
+                        child: Row(
+                          children: [
+                            Icon(
+                              exam['isExpired'] == true
+                                  ? Icons.warning_amber_rounded
+                                  : Icons.picture_as_pdf,
+                              color: exam['isExpired'] == true
+                                  ? Colors.orange
+                                  : const Color(0xFFE74C3C),
                             ),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Text(
-                            'PDF',
-                            style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600),
-                          ),
-                        )
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  // Submit exam button (student action)
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: SizedBox(
-                      height: 42,
-                      child: TextButton.icon(
-                        onPressed: () {
-                          // TODO: Implement file picker & upload logic
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                                content:
-                                    Text('سيتم دعم تسليم الاختبار قريباً')),
-                          );
-                        },
-                        icon: const Icon(Icons.add, color: Color(0xFF0A84FF)),
-                        label: const Text(
-                          'تسليم الاختبار',
-                          style: TextStyle(
-                            color: Color(0xFF0A84FF),
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        style: TextButton.styleFrom(
-                          foregroundColor: const Color(0xFF0A84FF),
-                          side: const BorderSide(
-                              color: Color(0xFF0A84FF), width: 1.5),
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12)),
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                exam['pdf']!,
+                                style: TextStyle(
+                                    color: exam['isExpired'] == true
+                                        ? Colors.orange
+                                        : Colors.black,
+                                    fontSize: 14),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            Row(
+                              children: [
+                                if (exam['isExpired'] != true) ...[
+                                  const Icon(
+                                    Icons.visibility,
+                                    color: Color(0xFF0A84FF),
+                                    size: 16,
+                                  ),
+                                  const SizedBox(width: 4),
+                                ],
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    gradient: exam['isExpired'] == true
+                                        ? const LinearGradient(
+                                            colors: [
+                                              Colors.orange,
+                                              Colors.deepOrange
+                                            ],
+                                            begin: Alignment.topLeft,
+                                            end: Alignment.bottomRight,
+                                          )
+                                        : const LinearGradient(
+                                            colors: [
+                                              Color(0xFF0A84FF),
+                                              Color(0xFF007AFF)
+                                            ],
+                                            begin: Alignment.topLeft,
+                                            end: Alignment.bottomRight,
+                                          ),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Text(
+                                    exam['isExpired'] == true ? 'منتهي' : 'عرض',
+                                    style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600),
+                                  ),
+                                ),
+                              ],
+                            )
+                          ],
                         ),
                       ),
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 12),
+                    // Submit exam button (student action)
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: SizedBox(
+                        height: 42,
+                        child: TextButton.icon(
+                          onPressed: exam['isExpired'] == true
+                              ? () => _showExpiredExamDialog(exam['title']!)
+                              : () => _submitExamSolution(
+                                  exam['id']!, exam['title']!),
+                          icon: Icon(
+                            exam['isExpired'] == true
+                                ? Icons.warning_amber_rounded
+                                : Icons.add,
+                            color: exam['isExpired'] == true
+                                ? Colors.orange
+                                : const Color(0xFF0A84FF),
+                          ),
+                          label: Text(
+                            exam['isExpired'] == true
+                                ? 'انتهت الصلاحية'
+                                : 'تسليم الاختبار',
+                            style: TextStyle(
+                              color: exam['isExpired'] == true
+                                  ? Colors.orange
+                                  : const Color(0xFF0A84FF),
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          style: TextButton.styleFrom(
+                            foregroundColor: exam['isExpired'] == true
+                                ? Colors.orange
+                                : const Color(0xFF0A84FF),
+                            side: BorderSide(
+                                color: exam['isExpired'] == true
+                                    ? Colors.orange
+                                    : const Color(0xFF0A84FF),
+                                width: 1.5),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12)),
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
     );
   }
@@ -787,6 +1012,7 @@ class _ClassroomScreenState extends State<ClassroomScreen> {
     return GradientDecoratedBackground(
       child: Scaffold(
         backgroundColor: Colors.transparent,
+        extendBodyBehindAppBar: true,
         appBar: AppBar(
           backgroundColor: Colors.transparent,
           elevation: 0,
@@ -823,45 +1049,47 @@ class _ClassroomScreenState extends State<ClassroomScreen> {
             ),
           ],
         ),
-        body: Column(
-          children: [
-            // Search bar (toggleable)
-            if (_showSearch)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Directionality(
-                  textDirection: TextDirection.rtl,
-                  child: TextField(
-                    controller: _searchController,
-                    autofocus: true,
-                    onChanged: (_) => setState(() {}),
-                    decoration: InputDecoration(
-                      hintText: 'ابحث في ${sectionTitles[_currentIndex]}...',
-                      prefixIcon:
-                          const Icon(Icons.search, color: Color(0xFF0A84FF)),
-                      enabledBorder: const OutlineInputBorder(
-                        borderRadius: BorderRadius.all(Radius.circular(12)),
-                        borderSide:
-                            BorderSide(color: Color(0xFF0A84FF), width: 1.2),
+        body: SafeArea(
+          child: Column(
+            children: [
+              // Search bar (toggleable)
+              if (_showSearch)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Directionality(
+                    textDirection: TextDirection.rtl,
+                    child: TextField(
+                      controller: _searchController,
+                      autofocus: true,
+                      onChanged: (_) => setState(() {}),
+                      decoration: InputDecoration(
+                        hintText: 'ابحث في ${sectionTitles[_currentIndex]}...',
+                        prefixIcon:
+                            const Icon(Icons.search, color: Color(0xFF0A84FF)),
+                        enabledBorder: const OutlineInputBorder(
+                          borderRadius: BorderRadius.all(Radius.circular(12)),
+                          borderSide:
+                              BorderSide(color: Color(0xFF0A84FF), width: 1.2),
+                        ),
+                        focusedBorder: const OutlineInputBorder(
+                          borderRadius: BorderRadius.all(Radius.circular(12)),
+                          borderSide:
+                              BorderSide(color: Color(0xFF0A84FF), width: 1.5),
+                        ),
+                        fillColor: const Color(0xFFF2F2F7),
+                        filled: true,
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 14),
                       ),
-                      focusedBorder: const OutlineInputBorder(
-                        borderRadius: BorderRadius.all(Radius.circular(12)),
-                        borderSide:
-                            BorderSide(color: Color(0xFF0A84FF), width: 1.5),
-                      ),
-                      fillColor: const Color(0xFFF2F2F7),
-                      filled: true,
-                      contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 14),
                     ),
                   ),
                 ),
-              ),
-            if (_showSearch) const SizedBox(height: 8),
-            // Removed notes filter chips per request
-            // Content
-            Expanded(child: _buildCurrentSectionList()),
-          ],
+              if (_showSearch) const SizedBox(height: 8),
+              // Removed notes filter chips per request
+              // Content
+              Expanded(child: _buildCurrentSectionList()),
+            ],
+          ),
         ),
         bottomNavigationBar: Directionality(
           textDirection: TextDirection.rtl,
@@ -891,6 +1119,9 @@ class _ClassroomScreenState extends State<ClassroomScreen> {
                   } else if (i == 2) {
                     // Videos tab
                     _loadVideos();
+                  } else if (i == 3 && !_tasksLoaded) {
+                    // Tasks/Exams tab - only load if not already loaded
+                    _loadTasks();
                   }
                 },
                 type: BottomNavigationBarType.fixed,
@@ -1157,6 +1388,268 @@ class _ClassroomScreenState extends State<ClassroomScreen> {
                   'إغلاق',
                   style: TextStyle(
                     color: Colors.grey,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _showExpiredExamDialog(String examTitle) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return Directionality(
+          textDirection: TextDirection.rtl,
+          child: AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            title: Row(
+              children: [
+                const Icon(
+                  Icons.warning_amber_rounded,
+                  color: Colors.orange,
+                  size: 24,
+                ),
+                const SizedBox(width: 8),
+                const Text(
+                  'انتهت صلاحية الامتحان',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+            content: Text(
+              'انتهت صلاحية الامتحان "$examTitle". لم يعد بإمكانك تسليم الحل.',
+              style: const TextStyle(fontSize: 14),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text(
+                  'إغلاق',
+                  style: TextStyle(
+                    color: Colors.grey,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _submitExamSolution(String taskId, String examTitle) async {
+    try {
+      // Show file picker
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png'],
+        allowMultiple: false,
+      );
+
+      if (result != null && result.files.isNotEmpty) {
+        final file = result.files.first;
+        final filePath = file.path;
+
+        if (filePath == null || filePath.isEmpty) {
+          _showErrorDialog('خطأ في تحديد الملف',
+              'لم يتم تحديد ملف صحيح. يرجى المحاولة مرة أخرى.');
+          return;
+        }
+
+        // Validate file size before upload (10MB limit)
+        final fileSize = file.size;
+        if (fileSize > 10 * 1024 * 1024) {
+          _showErrorDialog('حجم الملف كبير جداً',
+              'حجم الملف يجب أن يكون أقل من 10 ميجابايت.');
+          return;
+        }
+
+        // Validate file extension
+        final fileName = file.name.toLowerCase();
+        final allowedExtensions = ['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png'];
+        final fileExtension = fileName.split('.').last;
+
+        if (!allowedExtensions.contains(fileExtension)) {
+          _showErrorDialog('نوع الملف غير مدعوم',
+              'الملفات المدعومة: PDF, DOC, DOCX, JPG, JPEG, PNG');
+          return;
+        }
+
+        // Show loading dialog
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (BuildContext context) {
+            return Directionality(
+              textDirection: TextDirection.rtl,
+              child: AlertDialog(
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const CircularProgressIndicator(color: Color(0xFF0A84FF)),
+                    const SizedBox(height: 16),
+                    const Text('جاري تسليم الحل...'),
+                    const SizedBox(height: 8),
+                    Text(
+                      'الملف: ${file.name}',
+                      style: const TextStyle(fontSize: 12, color: Colors.grey),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+
+        // Get token from AuthProvider
+        final authProvider = Provider.of<AuthProvider>(context, listen: false);
+        final token = authProvider.token;
+
+        if (token == null || token.isEmpty) {
+          // Close loading dialog
+          Navigator.of(context).pop();
+          _showErrorDialog('خطأ في المصادقة', 'يرجى تسجيل الدخول مرة أخرى.');
+          return;
+        }
+
+        // Submit the solution
+        final submissionResult = await _apiService.submitTaskSolution(
+          classId: widget.classId,
+          taskId: taskId,
+          filePath: filePath,
+          accessToken: token,
+        );
+
+        // Close loading dialog
+        Navigator.of(context).pop();
+
+        if (submissionResult['success'] == true) {
+          _showSuccessDialog(
+            'تم تسليم الحل بنجاح',
+            submissionResult['message'] ?? 'تم تسليم حل الامتحان بنجاح',
+          );
+        } else {
+          _showErrorDialog(
+            'فشل في تسليم الحل',
+            submissionResult['message'] ?? 'حدث خطأ أثناء تسليم الحل',
+          );
+        }
+      }
+    } catch (e) {
+      // Close loading dialog if it's open
+      if (Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
+
+      // Extract error message from exception
+      String errorMessage = e.toString();
+      if (errorMessage.startsWith('Exception: ')) {
+        errorMessage = errorMessage.substring(11);
+      }
+
+      _showErrorDialog('خطا في تسليم الامتحان', errorMessage);
+    }
+  }
+
+  void _showErrorDialog(String title, String message) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return Directionality(
+          textDirection: TextDirection.rtl,
+          child: AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            title: Row(
+              children: [
+                const Icon(
+                  Icons.error_outline,
+                  color: Colors.red,
+                  size: 24,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+            content: Text(
+              message,
+              style: const TextStyle(fontSize: 14),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text(
+                  'موافق',
+                  style: TextStyle(
+                    color: Color(0xFF0A84FF),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _showSuccessDialog(String title, String message) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return Directionality(
+          textDirection: TextDirection.rtl,
+          child: AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            title: Row(
+              children: [
+                const Icon(
+                  Icons.check_circle_outline,
+                  color: Colors.green,
+                  size: 24,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+            content: Text(
+              message,
+              style: const TextStyle(fontSize: 14),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text(
+                  'موافق',
+                  style: TextStyle(
+                    color: Color(0xFF0A84FF),
                     fontWeight: FontWeight.w600,
                   ),
                 ),

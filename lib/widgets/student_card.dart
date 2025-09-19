@@ -18,9 +18,8 @@ class StudentCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Directionality(
       textDirection: TextDirection.rtl,
-      child: InkWell(
+      child: GestureDetector(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
         child: Container(
           decoration: BoxDecoration(
             color: Colors.white,

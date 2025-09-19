@@ -520,12 +520,37 @@ class AuthProvider extends ChangeNotifier {
         _user = jsonDecode(userDataString);
         _isAuthenticated = true;
         print('AuthProvider: Login data loaded from secure storage');
+        print('AuthProvider: Token: ${token.substring(0, 10)}...');
+        print('AuthProvider: User: ${_user?['name'] ?? 'Unknown'}');
         notifyListeners();
+      } else {
+        print('AuthProvider: No valid stored login data found');
       }
     } catch (e) {
       print('AuthProvider: Error loading stored login data: $e');
       // Clear invalid data
       await _clearStoredLoginData();
+    }
+  }
+
+  // Validate current session and clear if invalid
+  Future<bool> validateSession() async {
+    if (!_isAuthenticated || _token == null || _user == null) {
+      print('AuthProvider: No active session to validate');
+      return false;
+    }
+
+    try {
+      // Try to fetch user classes to validate the session
+      final classes = await getStudentClasses();
+      print(
+          'AuthProvider: Session validation successful, found ${classes.length} classes');
+      return true;
+    } catch (e) {
+      print('AuthProvider: Session validation failed: $e');
+      // Clear invalid session
+      await forceClearAuthState();
+      return false;
     }
   }
 
@@ -535,6 +560,77 @@ class AuthProvider extends ChangeNotifier {
     await _secureStorage.delete(key: 'user_data');
     await _secureStorage.delete(key: 'is_authenticated');
     print('AuthProvider: Stored login data cleared');
+  }
+
+  // Force clear all authentication state (for debugging or force logout)
+  Future<void> forceClearAuthState() async {
+    print('AuthProvider: Force clearing all authentication state...');
+
+    // Clear stored data
+    await _clearStoredLoginData();
+
+    // Clear memory state
+    _token = null;
+    _user = null;
+    _deviceToken = null;
+    _isAuthenticated = false;
+    _error = null;
+    _pendingId = null;
+
+    // Notify listeners
+    notifyListeners();
+
+    print('AuthProvider: All authentication state cleared');
+  }
+
+  // Quick logout - just clear local state without server call
+  Future<Map<String, dynamic>> quickLogout() async {
+    print('AuthProvider: Performing quick logout (local only)...');
+
+    try {
+      // Clear loading state first
+      _setLoading(false);
+
+      // Clear all authentication state
+      _token = null;
+      _user = null;
+      _deviceToken = null;
+      _isAuthenticated = false;
+      _error = null;
+      _pendingId = null;
+
+      // Clear stored data
+      await _clearStoredLoginData();
+
+      // Notify listeners immediately
+      notifyListeners();
+
+      print('AuthProvider: Quick logout completed successfully');
+
+      return {
+        'success': true,
+        'message': 'تم تسجيل الخروج محلياً',
+        'serverLogoutSuccess': false,
+      };
+    } catch (e) {
+      print('AuthProvider: Quick logout error: $e');
+
+      // Even if there's an error, clear the state
+      _token = null;
+      _user = null;
+      _deviceToken = null;
+      _isAuthenticated = false;
+      _error = null;
+      _pendingId = null;
+      _setLoading(false);
+      notifyListeners();
+
+      return {
+        'success': true,
+        'message': 'تم تسجيل الخروج محلياً',
+        'serverLogoutSuccess': false,
+      };
+    }
   }
 
   // Force login (for device conflict resolution)
@@ -590,30 +686,88 @@ class AuthProvider extends ChangeNotifier {
   }
 
   // Logout
-  Future<void> logout() async {
+  Future<Map<String, dynamic>> logout() async {
     _setLoading(true);
+    _clearError();
 
     try {
+      bool serverLogoutSuccess = false;
+      String logoutMessage = 'تم تسجيل الخروج بنجاح';
+
+      // Attempt server logout if we have user data
       if (_user != null && _deviceToken != null) {
-        await _apiService.logout(
-          userId: _user!['id'] ?? _user!['_id'],
-          deviceToken: _deviceToken!,
-        );
+        try {
+          print('AuthProvider: Attempting server logout...');
+          print('AuthProvider: User ID: ${_user!['id'] ?? _user!['_id']}');
+          print(
+              'AuthProvider: Device Token: ${_deviceToken!.substring(0, 10)}...');
+
+          final logoutResult = await _apiService
+              .logout(
+            userId: _user!['id'] ?? _user!['_id'],
+            deviceToken: _deviceToken!,
+          )
+              .timeout(
+            const Duration(seconds: 3),
+            onTimeout: () {
+              print('AuthProvider: Server logout timeout after 3 seconds');
+              return {
+                'success': false,
+                'message': 'انتهت مهلة تسجيل الخروج من الخادم',
+              };
+            },
+          );
+
+          print('AuthProvider: Server logout result: $logoutResult');
+
+          if (logoutResult['success'] == true) {
+            serverLogoutSuccess = true;
+            logoutMessage =
+                logoutResult['message'] ?? 'تم تسجيل الخروج من الخادم بنجاح';
+            print('AuthProvider: Server logout successful');
+          } else {
+            logoutMessage =
+                logoutResult['message'] ?? 'تم تسجيل الخروج محلياً فقط';
+            print(
+                'AuthProvider: Server logout failed: ${logoutResult['message']}');
+          }
+        } catch (e) {
+          print('AuthProvider: Server logout error: $e');
+          logoutMessage = 'تم تسجيل الخروج محلياً (خطأ في الخادم)';
+        }
+      } else {
+        print('AuthProvider: No user data or device token, local logout only');
+        print('AuthProvider: User: $_user');
+        print('AuthProvider: Device Token: $_deviceToken');
+        logoutMessage = 'تم تسجيل الخروج محلياً';
       }
+
+      // Always clear local data regardless of server response
+      print('AuthProvider: Clearing local data...');
+      await forceClearAuthState();
+      _setLoading(false);
+
+      print(
+          'AuthProvider: Authentication state cleared, notifying listeners...');
+
+      return {
+        'success': true,
+        'message': logoutMessage,
+        'serverLogoutSuccess': serverLogoutSuccess,
+      };
     } catch (e) {
-      // Ignore logout errors
       print('AuthProvider: Logout error: $e');
+
+      // Even if there's an error, clear local data
+      await forceClearAuthState();
+      _setLoading(false);
+
+      return {
+        'success': false,
+        'message': 'حدث خطأ أثناء تسجيل الخروج',
+        'error': e.toString(),
+      };
     }
-
-    // Clear stored login data
-    await _clearStoredLoginData();
-
-    _token = null;
-    _user = null;
-    _deviceToken = null;
-    _isAuthenticated = false;
-    _clearError();
-    _setLoading(false);
   }
 
   // Public method to set loading state
