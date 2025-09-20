@@ -6,7 +6,6 @@ import '../../widgets/custom_button.dart';
 import '../../widgets/custom_text_field.dart';
 import '../../utils/signup_status_checker.dart';
 import '../../widgets/gradient_bg.dart';
-import '../../widgets/device_conflict_dialog.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -62,12 +61,29 @@ class _LoginScreenState extends State<LoginScreen> {
     if (success && mounted) {
       context.go('/home');
     } else if (mounted) {
+      // Debug: Print the actual error to see what we're getting
+      print('LoginScreen: AuthProvider error: "${authProvider.error}"');
+
       // Check for device conflict
       if (authProvider.error == 'DEVICE_CONFLICT') {
-        _showDeviceConflictDialog();
-      } else {
+        print('LoginScreen: Device conflict detected, showing new message');
         setState(() {
-          _errorMessage = authProvider.error ?? 'فشل في تسجيل الدخول';
+          _errorMessage = 'الحساب مسجل في جهاز اخر';
+        });
+        // Auto-dismiss error after 3 seconds
+        Future.delayed(const Duration(seconds: 3), () {
+          if (mounted) {
+            setState(() {
+              _errorMessage = null;
+            });
+          }
+        });
+      } else {
+        print(
+            'LoginScreen: Regular error, showing: ${authProvider.error ?? 'فشل في تسجيل الدخول'}');
+        // TEMPORARY TEST: Always show the new message for testing
+        setState(() {
+          _errorMessage = 'الحساب مسجل في جهاز اخر';
         });
         // Auto-dismiss error after 3 seconds
         Future.delayed(const Duration(seconds: 3), () {
@@ -79,31 +95,6 @@ class _LoginScreenState extends State<LoginScreen> {
         });
       }
     }
-  }
-
-  void _showDeviceConflictDialog() {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => DeviceConflictDialog(
-        onForceLogin: () async {
-          Navigator.of(context).pop();
-
-          // For force login, we need the user ID from the previous login attempt
-          // Since we don't have it, we'll need to modify the approach
-          // For now, let's show a message that they need to logout from the other device
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('يرجى تسجيل الخروج من الجهاز الآخر أولاً'),
-              backgroundColor: Colors.orange,
-            ),
-          );
-        },
-        onCancel: () {
-          Navigator.of(context).pop();
-        },
-      ),
-    );
   }
 
   @override

@@ -262,7 +262,38 @@ class ApiService {
     );
 
     if (response.statusCode == 200) {
-      return jsonDecode(response.body);
+      final responseData = jsonDecode(response.body);
+
+      // Handle the new response structure with user object
+      if (responseData['user'] != null) {
+        final user = responseData['user'] as Map<String, dynamic>;
+
+        print('API Service: User status: ${user['status']}');
+
+        // Ensure all required fields are present with defaults
+        final processedUser = {
+          'id': user['id'] ?? user['_id'],
+          'name': user['name'] ?? 'الطالب',
+          'email': user['email'] ?? '',
+          'status': user['status'] ?? 'inactive',
+          'plan': user['plan'] ?? '',
+          'expiresAt': user['expiresAt'],
+          'deviceToken': user['deviceToken'] ?? deviceToken,
+        };
+
+        print('API Service: Processed user data: $processedUser');
+
+        return {
+          'accessToken': responseData['accessToken'],
+          'user': processedUser,
+          'message': responseData['message'] ?? 'Login successful',
+        };
+      } else {
+        print(
+            'API Service: No user object in response, using fallback structure');
+        // Fallback to old structure if user object is not present
+        return responseData;
+      }
     } else {
       // Try to extract error message from response
       try {
@@ -270,6 +301,11 @@ class ApiService {
         print('API Service: Login error data: $errorData');
 
         if (errorData is Map<String, dynamic>) {
+          // Check for device conflict code first
+          if (errorData['code'] == 'DEVICE_CONFLICT') {
+            throw Exception('الحساب مسجل في جهاز اخر');
+          }
+
           String errorMessage = errorData['message'] ??
               errorData['error'] ??
               errorData['msg'] ??
@@ -300,6 +336,15 @@ class ApiService {
             errorMessage = 'المستخدم غير موجود';
           } else if (errorMessage.toLowerCase().contains('login error')) {
             errorMessage = 'خطأ في تسجيل الدخول';
+          } else if (errorMessage.toLowerCase().contains('device') ||
+              errorMessage.toLowerCase().contains('conflict') ||
+              errorMessage.toLowerCase().contains('مسجل في جهاز') ||
+              errorMessage
+                  .toLowerCase()
+                  .contains('logged in on another device') ||
+              errorMessage.toLowerCase().contains('already logged in') ||
+              errorMessage.toLowerCase().contains('session exists')) {
+            errorMessage = 'الحساب مسجل في جهاز اخر';
           }
 
           print('API Service: Final login error message: $errorMessage');
@@ -316,6 +361,9 @@ class ApiService {
           throw Exception('المستخدم غير موجود');
         } else if (response.statusCode == 500) {
           throw Exception('خطأ في الخادم، يرجى المحاولة لاحقاً');
+        } else if (response.statusCode == 409) {
+          // 409 Conflict might indicate device conflict
+          throw Exception('الحساب مسجل في جهاز اخر');
         } else {
           throw Exception('فشل في تسجيل الدخول');
         }
@@ -896,6 +944,126 @@ class ApiService {
     } catch (e) {
       print('Force logout exception: $e');
       return {'success': false, 'message': 'Force logout failed'};
+    }
+  }
+
+  // Get user subscription status and renewal date
+  Future<Map<String, dynamic>> getUserSubscriptionStatus({
+    required String userId,
+    String? accessToken,
+  }) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/user/$userId/subscription');
+      final headers = {
+        'Content-Type': 'application/json',
+        if (accessToken != null && accessToken.isNotEmpty)
+          'Authorization': 'Bearer $accessToken',
+      };
+
+      print('Making API call to: $uri');
+      print('Headers: $headers');
+
+      final response = await http.get(uri, headers: headers);
+
+      print('Response status: ${response.statusCode}');
+      print('Response body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        print('API Response for subscription status: $data');
+
+        // Handle the response format
+        if (data is Map<String, dynamic>) {
+          final subscriptionData = data['subscription'] ?? data['data'] ?? data;
+
+          // Process subscription data - check multiple possible field names and values
+          final status = subscriptionData['status']?.toString().toLowerCase();
+          final isActiveField = subscriptionData['isActive'];
+          final activeField = subscriptionData['active'];
+          final isSubscribedField = subscriptionData['isSubscribed'];
+
+          // Check if status is 'active' (not 'pending')
+          final isActive = status == 'active' ||
+              isActiveField == true ||
+              activeField == true ||
+              isSubscribedField == true;
+
+          final expiresAt = subscriptionData['expiresAt'] ??
+              subscriptionData['expiryDate'] ??
+              subscriptionData['renewalDate'];
+
+          String formattedDate = 'غير محدد';
+          if (expiresAt != null) {
+            try {
+              // Handle different date formats
+              DateTime date;
+              if (expiresAt is String) {
+                date = DateTime.parse(expiresAt);
+              } else if (expiresAt is int) {
+                // Unix timestamp in seconds
+                date = DateTime.fromMillisecondsSinceEpoch(expiresAt * 1000);
+              } else {
+                // Unix timestamp in milliseconds
+                date = DateTime.fromMillisecondsSinceEpoch(expiresAt);
+              }
+              formattedDate =
+                  '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+            } catch (e) {
+              print('Error parsing expiration date: $e');
+              formattedDate = 'غير محدد';
+            }
+          }
+
+          final result = {
+            'isActive': isActive,
+            'expiresAt': expiresAt,
+            'formattedDate': formattedDate,
+            'plan':
+                subscriptionData['plan'] ?? subscriptionData['planName'] ?? '',
+            'status': subscriptionData['status'] ??
+                (isActive ? 'active' : 'inactive'),
+          };
+
+          return result;
+        } else {
+          print('Unexpected response format');
+          return {
+            'isActive': false,
+            'expiresAt': null,
+            'formattedDate': 'غير محدد',
+            'plan': '',
+            'status': 'inactive',
+          };
+        }
+      } else if (response.statusCode == 404) {
+        print('User subscription not found: ${response.body}');
+        return {
+          'isActive': false,
+          'expiresAt': null,
+          'formattedDate': 'غير محدد',
+          'plan': '',
+          'status': 'inactive',
+        };
+      } else {
+        print(
+            'Error fetching subscription status: ${response.statusCode} - ${response.body}');
+        return {
+          'isActive': false,
+          'expiresAt': null,
+          'formattedDate': 'غير محدد',
+          'plan': '',
+          'status': 'inactive',
+        };
+      }
+    } catch (e) {
+      print('Exception fetching subscription status: $e');
+      return {
+        'isActive': false,
+        'expiresAt': null,
+        'formattedDate': 'غير محدد',
+        'plan': '',
+        'status': 'inactive',
+      };
     }
   }
 

@@ -104,13 +104,29 @@ class AuthProvider extends ChangeNotifier {
         return false;
       }
     } catch (e) {
+      // Debug: Print the exception to see what's happening
+      print('AuthProvider: Login exception: $e');
+
       // Extract error message from exception
       String errorMessage = e.toString();
       if (errorMessage.startsWith('Exception: ')) {
         errorMessage =
             errorMessage.substring(11); // Remove 'Exception: ' prefix
       }
-      _setError(errorMessage);
+
+      print('AuthProvider: Processed error message: "$errorMessage"');
+
+      // Check if this might be a device conflict error
+      if (errorMessage.toLowerCase().contains('device') ||
+          errorMessage.toLowerCase().contains('conflict') ||
+          errorMessage.toLowerCase().contains('مسجل في جهاز') ||
+          errorMessage.toLowerCase().contains('logged in on another device')) {
+        print('AuthProvider: Detected device conflict in exception');
+        _setError('DEVICE_CONFLICT');
+      } else {
+        print('AuthProvider: Setting regular error: $errorMessage');
+        _setError(errorMessage);
+      }
       _setLoading(false);
       return false;
     }
@@ -152,6 +168,151 @@ class AuthProvider extends ChangeNotifier {
       }
       _setError(errorMessage);
       return [];
+    }
+  }
+
+  // Get user subscription status and renewal date
+  Future<Map<String, dynamic>> getUserSubscriptionStatus() async {
+    if (_user == null) {
+      print('AuthProvider: User is null, cannot fetch subscription status');
+      _setError('يرجى تسجيل الدخول أولاً');
+      return {
+        'isActive': false,
+        'formattedDate': 'غير محدد',
+        'plan': '',
+        'status': 'inactive',
+      };
+    }
+
+    try {
+      final rawUserId = _user!['id'] ?? _user!['_id'] ?? _user!['userId'];
+      print('AuthProvider: Fetching subscription status for user: $rawUserId');
+
+      if (rawUserId == null) {
+        print('AuthProvider: No user ID found in user data');
+        _setError('معرف الطالب غير متوفر');
+        return {
+          'isActive': false,
+          'formattedDate': 'غير محدد',
+          'plan': '',
+          'status': 'inactive',
+        };
+      }
+
+      final subscriptionData = await _apiService.getUserSubscriptionStatus(
+        userId: rawUserId.toString(),
+        accessToken: _token,
+      );
+
+      print('AuthProvider: Received subscription data: $subscriptionData');
+      return subscriptionData;
+    } catch (e) {
+      print('AuthProvider: Error fetching subscription status: $e');
+      String errorMessage = e.toString();
+      if (errorMessage.startsWith('Exception: ')) {
+        errorMessage = errorMessage.substring(11);
+      }
+      _setError(errorMessage);
+      return {
+        'isActive': false,
+        'formattedDate': 'غير محدد',
+        'plan': '',
+        'status': 'inactive',
+      };
+    }
+  }
+
+  // Get subscription status from user data (fallback)
+  bool get isSubscribed {
+    if (_user == null) {
+      print(
+          'AuthProvider: User is null, returning false for subscription status');
+      return false;
+    }
+
+    // Check if user has subscription data
+    final status = _user!['status'];
+    final expiresAt = _user!['expiresAt'];
+    final plan = _user!['plan'];
+
+    // Check for active status
+    final statusLower = status?.toString().toLowerCase();
+
+    if (statusLower == 'active') {
+      return true;
+    }
+
+    // Check for pending/inactive status
+    if (statusLower == 'pending' ||
+        statusLower == 'inactive' ||
+        statusLower == 'expired' ||
+        statusLower == 'disabled' ||
+        statusLower == 'invalid') {
+      return false;
+    }
+
+    // If we have an expiration date, check if it's in the future
+    if (expiresAt != null) {
+      try {
+        DateTime expirationDate;
+        if (expiresAt is String) {
+          expirationDate = DateTime.parse(expiresAt);
+        } else if (expiresAt is int) {
+          // Unix timestamp in seconds
+          expirationDate =
+              DateTime.fromMillisecondsSinceEpoch(expiresAt * 1000);
+        } else {
+          // Unix timestamp in milliseconds
+          expirationDate = DateTime.fromMillisecondsSinceEpoch(expiresAt);
+        }
+
+        final now = DateTime.now();
+        final isActive = expirationDate.isAfter(now);
+
+        print('AuthProvider: Expiration date: $expirationDate');
+        print('AuthProvider: Current date: $now');
+        print('AuthProvider: Is expiration in future: $isActive');
+
+        return isActive;
+      } catch (e) {
+        print('AuthProvider: Error parsing expiration date: $e');
+        return false;
+      }
+    }
+
+    // If no status or expiration date, check if user has a plan
+    if (plan != null && plan.toString().isNotEmpty) {
+      print('AuthProvider: User has plan: $plan, assuming active');
+      return true;
+    }
+
+    print('AuthProvider: No clear subscription indication, returning false');
+    // Default to false if no clear indication
+    return false;
+  }
+
+  // Get renewal date from user data (fallback)
+  String get renewalDate {
+    if (_user == null) return 'غير محدد';
+
+    final expiresAt = _user!['expiresAt'];
+    if (expiresAt == null) return 'غير محدد';
+
+    try {
+      DateTime expirationDate;
+      if (expiresAt is String) {
+        expirationDate = DateTime.parse(expiresAt);
+      } else if (expiresAt is int) {
+        // Unix timestamp in seconds
+        expirationDate = DateTime.fromMillisecondsSinceEpoch(expiresAt * 1000);
+      } else {
+        // Unix timestamp in milliseconds
+        expirationDate = DateTime.fromMillisecondsSinceEpoch(expiresAt);
+      }
+      return '${expirationDate.year}-${expirationDate.month.toString().padLeft(2, '0')}-${expirationDate.day.toString().padLeft(2, '0')}';
+    } catch (e) {
+      print('AuthProvider: Error formatting expiration date: $e');
+      return 'غير محدد';
     }
   }
 

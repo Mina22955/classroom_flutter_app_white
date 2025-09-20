@@ -6,6 +6,7 @@ import '../providers/auth_provider.dart';
 import '../services/api_service.dart';
 import '../widgets/class_card.dart';
 import '../widgets/gradient_bg.dart';
+import '../widgets/subscription_expired_dialog.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -20,16 +21,52 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _isJoiningClass = false;
   bool _joinExpanded = false;
   bool _isLoadingClasses = false;
+  Map<String, dynamic>? _subscriptionData;
+  bool _isLoadingSubscription = false;
+  bool _hasShownExpiredDialog = false;
 
   @override
   void initState() {
     super.initState();
+    // Reset dialog flag when screen initializes
+    _hasShownExpiredDialog = false;
     // Rebuild to show/ hide clear icon and enable button
     _classIdController.addListener(() {
       if (mounted) setState(() {});
     });
-    // Load joined classes asynchronously without blocking the UI
-    Future.microtask(() => _loadJoinedClasses());
+    // Load joined classes and subscription data asynchronously without blocking the UI
+    Future.microtask(() {
+      _loadJoinedClasses();
+      _loadSubscriptionData();
+    });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Check subscription status after the widget is built
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkSubscriptionStatus();
+    });
+  }
+
+  void _checkSubscriptionStatus() {
+    if (_hasShownExpiredDialog) return; // Prevent showing dialog multiple times
+
+    final authProvider = context.read<AuthProvider>();
+    final isSubscribed = _getSubscriptionStatus(authProvider);
+
+    if (!isSubscribed) {
+      _hasShownExpiredDialog = true;
+      // Show subscription expired dialog
+      showDialog(
+        context: context,
+        barrierDismissible: false, // Cannot be dismissed by tapping outside
+        builder: (BuildContext context) {
+          return const SubscriptionExpiredDialog();
+        },
+      );
+    }
   }
 
   Future<void> _loadJoinedClasses() async {
@@ -64,10 +101,56 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  Future<void> _loadSubscriptionData() async {
+    if (!mounted) return;
+
+    print('Loading subscription data...');
+    setState(() {
+      _isLoadingSubscription = true;
+    });
+
+    try {
+      final authProvider = context.read<AuthProvider>();
+      print('HomeScreen: About to call getUserSubscriptionStatus()');
+      final subscriptionData = await authProvider.getUserSubscriptionStatus();
+      print(
+          'HomeScreen: Fetched subscription data from API: $subscriptionData');
+      if (mounted) {
+        setState(() {
+          _subscriptionData = subscriptionData;
+          _isLoadingSubscription = false;
+        });
+        print('HomeScreen: Updated _subscriptionData: $_subscriptionData');
+
+        // Check subscription status after loading data
+        _checkSubscriptionStatus();
+      }
+    } catch (e) {
+      print('HomeScreen: Error loading subscription data: $e');
+      if (mounted) {
+        setState(() {
+          _isLoadingSubscription = false;
+        });
+      }
+    }
+  }
+
   @override
   void dispose() {
     _classIdController.dispose();
     super.dispose();
+  }
+
+  // Helper method to get subscription status
+  bool _getSubscriptionStatus(AuthProvider authProvider) {
+    // Always prioritize login data over API data since API data seems unreliable
+    return authProvider.isSubscribed;
+  }
+
+  // Helper method to get renewal date
+  String _getRenewalDate(AuthProvider authProvider) {
+    // Always prioritize login data over API data since API data seems unreliable
+    return authProvider.renewalDate;
   }
 
   Future<void> _handleJoinClass() async {
@@ -251,17 +334,39 @@ class _HomeScreenState extends State<HomeScreen> {
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           // Student card with logout
-                          _buildStudentCardWithLogout(
-                            studentName: user?['name'] ?? 'الطالب',
-                            isSubscribed: true,
-                            renewalDate: '2025-12-31',
-                            onProfileTap: () {
-                              // Immediate navigation with no delay
-                              context.push('/profile');
-                            },
-                            onLogoutTap: () =>
-                                _showLogoutConfirmation(context, authProvider),
-                          ),
+                          _isLoadingSubscription
+                              ? Container(
+                                  height: 130,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(16),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.10),
+                                        blurRadius: 18,
+                                        spreadRadius: 1,
+                                        offset: const Offset(0, 6),
+                                      ),
+                                    ],
+                                  ),
+                                  child: const Center(
+                                    child: CircularProgressIndicator(
+                                      color: Color(0xFF0A84FF),
+                                    ),
+                                  ),
+                                )
+                              : _buildStudentCardWithLogout(
+                                  studentName: user?['name'] ?? 'الطالب',
+                                  isSubscribed:
+                                      _getSubscriptionStatus(authProvider),
+                                  renewalDate: _getRenewalDate(authProvider),
+                                  onProfileTap: () {
+                                    // Immediate navigation with no delay
+                                    context.push('/profile');
+                                  },
+                                  onLogoutTap: () => _showLogoutConfirmation(
+                                      context, authProvider),
+                                ),
                           const SizedBox(height: 24),
                           // Collapsible Join control
                           AnimatedSwitcher(
@@ -674,7 +779,10 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                               const Spacer(),
                               IconButton(
-                                onPressed: _loadJoinedClasses,
+                                onPressed: () {
+                                  _loadJoinedClasses();
+                                  _loadSubscriptionData();
+                                },
                                 icon: const Icon(Icons.refresh,
                                     color: Color(0xFF0A84FF)),
                                 tooltip: 'تحديث القائمة',
@@ -690,7 +798,10 @@ class _HomeScreenState extends State<HomeScreen> {
                                     ),
                                   )
                                 : RefreshIndicator(
-                                    onRefresh: _loadJoinedClasses,
+                                    onRefresh: () async {
+                                      await _loadJoinedClasses();
+                                      await _loadSubscriptionData();
+                                    },
                                     color: const Color(0xFF0A84FF),
                                     child: ListView.separated(
                                       itemCount: _joinedClasses.length,
