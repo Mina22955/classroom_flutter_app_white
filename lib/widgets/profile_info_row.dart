@@ -36,7 +36,8 @@ class ProfileInfoRow extends StatelessWidget {
               child: Text(
                 value,
                 style: TextStyle(
-                  color: valueColor ?? Colors.black,
+                  color: valueColor ??
+                      const Color(0xFF1A1A1A), // Darker for better contrast
                   fontSize: 14,
                   fontWeight: FontWeight.w500,
                 ),

@@ -23,9 +23,19 @@ class _MyAppState extends State<MyApp> {
   void initState() {
     super.initState();
     _authProvider = AuthProvider();
-    // Load pending ID and login data from storage on app start
-    _authProvider.loadPendingId();
-    _authProvider.loadStoredLoginData();
+    // Load authentication data before app starts
+    _initializeAuth();
+  }
+
+  Future<void> _initializeAuth() async {
+    try {
+      // Load pending ID and login data from storage on app start
+      await _authProvider.loadPendingId();
+      await _authProvider.loadStoredLoginData();
+      print('Main: Authentication initialization completed');
+    } catch (e) {
+      print('Main: Error during authentication initialization: $e');
+    }
   }
 
   @override
@@ -43,7 +53,7 @@ class _MyAppState extends State<MyApp> {
             theme: appTheme,
             routerConfig: AppRouter.router,
             builder: (context, child) {
-              // Ensure all pages respect the system status/notification bar area
+              // Direct app display without any loading screen
               return SafeArea(
                 top: true,
                 bottom: false,

@@ -19,13 +19,15 @@ import '../screens/debug/api_test_screen.dart';
 class AppRouter {
   static final GoRouter router = GoRouter(
     initialLocation: '/login',
-    redirect: (context, state) {
+    redirect: (context, state) async {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
 
-      // Only load stored data if not already loaded (first time)
+      // Load stored data if not already loaded (first time) - blocking until loaded
       if (!authProvider.isAuthenticated && authProvider.user == null) {
-        // Load stored login data asynchronously without blocking navigation
-        Future.microtask(() => authProvider.loadStoredLoginData());
+        print('AppRouter: Loading stored login data...');
+        await authProvider.loadStoredLoginData();
+        print(
+            'AppRouter: Stored login data loaded, isAuthenticated: ${authProvider.isAuthenticated}');
       }
 
       final isAuthenticated = authProvider.isAuthenticated;

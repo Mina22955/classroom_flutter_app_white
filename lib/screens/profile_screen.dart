@@ -73,12 +73,19 @@ class ProfileScreen extends StatelessWidget {
                   width: double.infinity,
                   padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFE3F2FD), // Light blue background
+                    color: const Color(0xFFF8F9FA), // Off-white solid color
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(
-                      color: Colors.black.withOpacity(0.08),
+                      color: Colors.grey.withOpacity(0.2),
                       width: 1,
                     ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 20,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
                   ),
                   child: Column(
                     children: [
@@ -96,16 +103,16 @@ class ProfileScreen extends StatelessWidget {
                             height: 80,
                             decoration: BoxDecoration(
                               color: const Color(
-                                  0xFF1565C0), // Darker blue for better contrast
+                                  0xFF0D47A1), // Much darker blue for better contrast
                               borderRadius: BorderRadius.circular(40),
                               border: Border.all(
-                                color: Colors.white.withOpacity(0.4),
+                                color: Colors.white.withOpacity(0.6),
                                 width: 2,
                               ),
                               boxShadow: [
                                 BoxShadow(
                                   color:
-                                      const Color(0xFF1565C0).withOpacity(0.4),
+                                      const Color(0xFF0D47A1).withOpacity(0.5),
                                   blurRadius: 12,
                                   offset: const Offset(0, 4),
                                 ),
@@ -117,8 +124,9 @@ class ProfileScreen extends StatelessWidget {
                                   begin: Alignment.topLeft,
                                   end: Alignment.bottomRight,
                                   colors: [
-                                    Color(0xFF0A84FF), // brand blue
-                                    Color(0xFF007AFF), // darker blue
+                                    Color(
+                                        0xFFFFFFFF), // Pure white for maximum contrast
+                                    Color(0xFFF5F5F5), // Slightly off-white
                                   ],
                                 ).createShader(bounds);
                               },
@@ -126,7 +134,7 @@ class ProfileScreen extends StatelessWidget {
                               child: const Icon(
                                 Icons.person,
                                 color: Colors.white,
-                                size: 44,
+                                size: 36,
                               ),
                             ),
                           ),
@@ -137,7 +145,8 @@ class ProfileScreen extends StatelessWidget {
                       Text(
                         student['name'],
                         style: const TextStyle(
-                          color: Colors.black,
+                          color:
+                              Color(0xFF1A1A1A), // Darker for better contrast
                           fontSize: 24,
                           fontWeight: FontWeight.bold,
                         ),
@@ -194,12 +203,19 @@ class ProfileScreen extends StatelessWidget {
                   width: double.infinity,
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFE3F2FD), // Light blue background
+                    color: const Color(0xFFF8F9FA), // Off-white solid color
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
-                      color: Colors.black.withOpacity(0.08),
+                      color: Colors.grey.withOpacity(0.2),
                       width: 1,
                     ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.04),
+                        blurRadius: 15,
+                        offset: const Offset(0, 6),
+                      ),
+                    ],
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -207,7 +223,8 @@ class ProfileScreen extends StatelessWidget {
                       const Text(
                         'معلومات الحساب',
                         style: TextStyle(
-                          color: Colors.black,
+                          color:
+                              Color(0xFF1A1A1A), // Darker for better contrast
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
                         ),
@@ -278,12 +295,19 @@ class ProfileScreen extends StatelessWidget {
                       width: double.infinity,
                       padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFE3F2FD), // Light blue background
+                        color: const Color(0xFFF8F9FA), // Off-white solid color
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(
-                          color: Colors.black.withOpacity(0.08),
+                          color: Colors.grey.withOpacity(0.2),
                           width: 1,
                         ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.03),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -300,7 +324,8 @@ class ProfileScreen extends StatelessWidget {
                           const Text(
                             'الخطة الحالية',
                             style: TextStyle(
-                              color: Colors.black,
+                              color: Color(
+                                  0xFF1A1A1A), // Darker for better contrast
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
                             ),
@@ -309,7 +334,8 @@ class ProfileScreen extends StatelessWidget {
                           Text(
                             (plan['title'] ?? plan['name'] ?? '').toString(),
                             style: const TextStyle(
-                              color: Colors.black,
+                              color: Color(
+                                  0xFF1A1A1A), // Darker for better contrast
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
                             ),
@@ -374,56 +400,6 @@ class ProfileScreen extends StatelessWidget {
                       ),
                     );
                   },
-                ),
-                const SizedBox(height: 16),
-                // Logout Button
-                Container(
-                  width: double.infinity,
-                  height: 50,
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFFE53E3E), Color(0xFFC53030)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFFE53E3E).withOpacity(0.25),
-                        blurRadius: 8,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(12),
-                      onTap: () =>
-                          _showLogoutConfirmation(context, authProvider),
-                      child: Center(
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(
-                              Icons.logout_rounded,
-                              color: Colors.white,
-                              size: 20,
-                            ),
-                            const SizedBox(width: 8),
-                            const Text(
-                              'تسجيل خروج',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
                 ),
                 const SizedBox(height: 16),
                 // Edit Profile Button
@@ -531,6 +507,44 @@ class ProfileScreen extends StatelessWidget {
                     ),
                   ),
                 ),
+                const SizedBox(height: 16),
+                // Logout Button
+                Container(
+                  width: double.infinity,
+                  height: 50,
+                  decoration: BoxDecoration(
+                    color: Colors.transparent,
+                    borderRadius: BorderRadius.circular(12),
+                    border:
+                        Border.all(color: const Color(0xFFE53E3E), width: 1.5),
+                  ),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(12),
+                      onTap: () =>
+                          _showLogoutConfirmation(context, authProvider),
+                      child: Center(
+                        child: ShaderMask(
+                          shaderCallback: (bounds) => const LinearGradient(
+                            colors: [Color(0xFFE53E3E), Color(0xFFC53030)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ).createShader(bounds),
+                          blendMode: BlendMode.srcIn,
+                          child: const Text(
+                            'تسجيل خروج',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
@@ -590,49 +604,9 @@ class ProfileScreen extends StatelessWidget {
                     // Close confirmation dialog first
                     Navigator.of(context).pop();
 
-                    // Show loading dialog
-                    showDialog(
-                      context: context,
-                      barrierDismissible: false,
-                      builder: (BuildContext context) {
-                        return Directionality(
-                          textDirection: TextDirection.rtl,
-                          child: AlertDialog(
-                            backgroundColor: const Color(0xFF1C1C1E),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                            content: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const CircularProgressIndicator(
-                                  color: Color(0xFFE53E3E),
-                                ),
-                                const SizedBox(height: 16),
-                                const Text(
-                                  'جاري تسجيل الخروج...',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 16,
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                const Text(
-                                  'يرجى الانتظار',
-                                  style: TextStyle(
-                                    color: Colors.white70,
-                                    fontSize: 14,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
-                    );
-
-                    // Perform logout process with immediate execution
-                    print('ProfileScreen: Starting immediate logout...');
+                    // Perform immediate logout without any loading dialogs
+                    print(
+                        'ProfileScreen: Starting immediate logout after confirmation...');
 
                     // Store user data before clearing for server logout
                     final userData = authProvider.user;
@@ -640,11 +614,6 @@ class ProfileScreen extends StatelessWidget {
 
                     // Clear local state immediately
                     await authProvider.quickLogout();
-
-                    // Close loading dialog immediately
-                    if (context.mounted) {
-                      Navigator.of(context).pop();
-                    }
 
                     // Navigate to login immediately
                     if (context.mounted) {

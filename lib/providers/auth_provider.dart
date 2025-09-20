@@ -501,6 +501,9 @@ class AuthProvider extends ChangeNotifier {
       await _secureStorage.write(key: 'auth_token', value: _token!);
       await _secureStorage.write(key: 'user_data', value: jsonEncode(_user!));
       await _secureStorage.write(key: 'is_authenticated', value: 'true');
+      if (_deviceToken != null) {
+        await _secureStorage.write(key: 'device_token', value: _deviceToken!);
+      }
       print('AuthProvider: Login data saved to secure storage');
     }
   }
@@ -512,6 +515,7 @@ class AuthProvider extends ChangeNotifier {
       final userDataString = await _secureStorage.read(key: 'user_data');
       final isAuthenticatedString =
           await _secureStorage.read(key: 'is_authenticated');
+      final deviceToken = await _secureStorage.read(key: 'device_token');
 
       if (token != null &&
           userDataString != null &&
@@ -519,17 +523,46 @@ class AuthProvider extends ChangeNotifier {
         _token = token;
         _user = jsonDecode(userDataString);
         _isAuthenticated = true;
+        if (deviceToken != null) {
+          _deviceToken = deviceToken;
+        }
         print('AuthProvider: Login data loaded from secure storage');
         print('AuthProvider: Token: ${token.substring(0, 10)}...');
         print('AuthProvider: User: ${_user?['name'] ?? 'Unknown'}');
+        print(
+            'AuthProvider: Device Token: ${deviceToken?.substring(0, 10) ?? 'None'}...');
+
+        // Validate the session to ensure it's still valid
+        final isValidSession = await validateSession();
+        if (!isValidSession) {
+          print('AuthProvider: Stored session is invalid, clearing data');
+          await _clearStoredLoginData();
+          _isAuthenticated = false;
+          _token = null;
+          _user = null;
+          _deviceToken = null;
+        } else {
+          print('AuthProvider: Stored session is valid');
+        }
+
         notifyListeners();
       } else {
         print('AuthProvider: No valid stored login data found');
+        _isAuthenticated = false;
+        _token = null;
+        _user = null;
+        _deviceToken = null;
+        notifyListeners();
       }
     } catch (e) {
       print('AuthProvider: Error loading stored login data: $e');
       // Clear invalid data
       await _clearStoredLoginData();
+      _isAuthenticated = false;
+      _token = null;
+      _user = null;
+      _deviceToken = null;
+      notifyListeners();
     }
   }
 
@@ -559,6 +592,7 @@ class AuthProvider extends ChangeNotifier {
     await _secureStorage.delete(key: 'auth_token');
     await _secureStorage.delete(key: 'user_data');
     await _secureStorage.delete(key: 'is_authenticated');
+    await _secureStorage.delete(key: 'device_token');
     print('AuthProvider: Stored login data cleared');
   }
 
