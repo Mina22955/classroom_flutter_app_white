@@ -275,6 +275,7 @@ class ApiService {
           'id': user['id'] ?? user['_id'],
           'name': user['name'] ?? 'الطالب',
           'email': user['email'] ?? '',
+          'phone': user['phone'] ?? '',
           'status': user['status'] ?? 'inactive',
           'plan': user['plan'] ?? '',
           'expiresAt': user['expiresAt'],
@@ -1272,6 +1273,132 @@ class ApiService {
     } catch (e) {
       print('Exception fetching class tasks: $e');
       return [];
+    }
+  }
+
+  // Update user profile
+  Future<Map<String, dynamic>> updateUserProfile({
+    required String studentId,
+    required String name,
+    required String phone,
+    required String email,
+    String? password,
+    String? accessToken,
+  }) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/student/$studentId/updateUser');
+      final headers = {
+        'Content-Type': 'application/json',
+        if (accessToken != null && accessToken.isNotEmpty)
+          'Authorization': 'Bearer $accessToken',
+      };
+
+      final body = {
+        'name': name,
+        'phone': phone,
+        'email': email,
+        if (password != null && password.isNotEmpty) 'password': password,
+      };
+
+      print('Making API call to: $uri');
+      print('Headers: $headers');
+      print('Body: $body');
+
+      final response =
+          await http.put(uri, headers: headers, body: jsonEncode(body));
+
+      print('Response status: ${response.statusCode}');
+      print('Response body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        print('API Response for user update: $data');
+        return data;
+      } else {
+        print('Error updating user: ${response.statusCode} - ${response.body}');
+
+        try {
+          final errorData = jsonDecode(response.body);
+          String errorMessage = (errorData is Map<String, dynamic>)
+              ? (errorData['message'] ??
+                  errorData['error'] ??
+                  errorData['msg'] ??
+                  'فشل في تحديث الملف الشخصي')
+              : 'فشل في تحديث الملف الشخصي';
+
+          throw Exception(errorMessage);
+        } catch (jsonError) {
+          if (response.statusCode == 400) {
+            throw Exception('بيانات الطلب غير صحيحة');
+          } else if (response.statusCode == 401) {
+            throw Exception('غير مخول لتحديث الملف الشخصي');
+          } else if (response.statusCode == 404) {
+            throw Exception('المستخدم غير موجود');
+          } else if (response.statusCode == 500) {
+            throw Exception('خطأ في الخادم، يرجى المحاولة لاحقاً');
+          } else {
+            throw Exception('فشل في تحديث الملف الشخصي');
+          }
+        }
+      }
+    } catch (e) {
+      print('Exception updating user: $e');
+      rethrow;
+    }
+  }
+
+  // Get plan details
+  Future<Map<String, dynamic>> getPlanDetails({
+    required String planId,
+    String? accessToken,
+  }) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/student/plan/$planId');
+      final headers = {
+        'Content-Type': 'application/json',
+        if (accessToken != null && accessToken.isNotEmpty)
+          'Authorization': 'Bearer $accessToken',
+      };
+
+      print('Making API call to: $uri');
+      print('Headers: $headers');
+
+      final response = await http.get(uri, headers: headers);
+
+      print('Response status: ${response.statusCode}');
+      print('Response body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        print('API Response for plan details: $data');
+        return data;
+      } else {
+        print(
+            'Error fetching plan details: ${response.statusCode} - ${response.body}');
+
+        try {
+          final errorData = jsonDecode(response.body);
+          String errorMessage = (errorData is Map<String, dynamic>)
+              ? (errorData['message'] ??
+                  errorData['error'] ??
+                  errorData['msg'] ??
+                  'فشل في جلب تفاصيل الخطة')
+              : 'فشل في جلب تفاصيل الخطة';
+
+          throw Exception(errorMessage);
+        } catch (jsonError) {
+          if (response.statusCode == 404) {
+            throw Exception('الخطة غير موجودة');
+          } else if (response.statusCode == 500) {
+            throw Exception('خطأ في الخادم، يرجى المحاولة لاحقاً');
+          } else {
+            throw Exception('فشل في جلب تفاصيل الخطة');
+          }
+        }
+      }
+    } catch (e) {
+      print('Exception fetching plan details: $e');
+      rethrow;
     }
   }
 

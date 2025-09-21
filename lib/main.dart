@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'providers/auth_provider.dart';
 import 'providers/subscription_provider.dart';
 import 'router/app_router.dart';
+import 'package:flutter/services.dart';
 
 void main() {
   runApp(const MyApp());
@@ -25,6 +26,13 @@ class _MyAppState extends State<MyApp> {
     _authProvider = AuthProvider();
     // Load authentication data before app starts
     _initializeAuth();
+    SystemChrome.setSystemUIOverlayStyle(
+      const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.dark,
+        statusBarBrightness: Brightness.light,
+      ),
+    );
   }
 
   Future<void> _initializeAuth() async {

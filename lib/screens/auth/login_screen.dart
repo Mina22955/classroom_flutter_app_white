@@ -272,6 +272,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
         return Scaffold(
           backgroundColor: Colors.white,
+          extendBodyBehindAppBar: true,
           body: SafeArea(
             child: GradientDecoratedBackground(
               child: isKeyboardOpen

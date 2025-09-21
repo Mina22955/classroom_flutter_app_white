@@ -642,18 +642,63 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  // Update Profile (mock local update)
-  Future<void> updateProfile({
-    String? name,
-    String? phone,
+  // Update Profile
+  Future<bool> updateProfile({
+    required String name,
+    required String phone,
+    required String email,
+    String? password,
   }) async {
-    // In real app, call _apiService.updateProfile and await response
-    _user = {
-      ...?_user,
-      if (name != null) 'name': name,
-      if (phone != null) 'phone': phone,
-    };
-    notifyListeners();
+    if (_user == null) {
+      _setError('يرجى تسجيل الدخول أولاً');
+      return false;
+    }
+
+    _setLoading(true);
+    _clearError();
+
+    try {
+      final rawUserId = _user!['id'] ?? _user!['_id'] ?? _user!['userId'];
+      if (rawUserId == null) {
+        _setError('معرف الطالب غير متوفر');
+        _setLoading(false);
+        return false;
+      }
+
+      final response = await _apiService.updateUserProfile(
+        studentId: rawUserId.toString(),
+        name: name,
+        phone: phone,
+        email: email,
+        password: password,
+        accessToken: _token,
+      );
+
+      if (response['student'] != null) {
+        // Update local user data with the response
+        _user = {
+          ...?_user,
+          'name': response['student']['name'],
+          'phone': response['student']['phone'],
+          'email': response['student']['email'],
+        };
+        await _saveLoginData();
+        _setLoading(false);
+        return true;
+      } else {
+        _setError(response['message'] ?? 'فشل في تحديث الملف الشخصي');
+        _setLoading(false);
+        return false;
+      }
+    } catch (e) {
+      String errorMessage = e.toString();
+      if (errorMessage.startsWith('Exception: ')) {
+        errorMessage = errorMessage.substring(11);
+      }
+      _setError(errorMessage);
+      _setLoading(false);
+      return false;
+    }
   }
 
   // Save login data to secure storage

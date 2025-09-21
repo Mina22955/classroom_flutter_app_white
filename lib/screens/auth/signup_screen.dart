@@ -334,6 +334,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
             GradientDecoratedBackground(
               child: Scaffold(
                 backgroundColor: Colors.transparent,
+                extendBodyBehindAppBar: true,
                 appBar: AppBar(
                   backgroundColor: Colors.transparent,
                   elevation: 0,

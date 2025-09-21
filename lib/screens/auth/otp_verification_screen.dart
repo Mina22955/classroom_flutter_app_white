@@ -133,6 +133,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
           child: GradientDecoratedBackground(
             child: Scaffold(
               backgroundColor: Colors.transparent,
+              extendBodyBehindAppBar: true,
               appBar: AppBar(
                 backgroundColor: Colors.transparent,
                 elevation: 0,

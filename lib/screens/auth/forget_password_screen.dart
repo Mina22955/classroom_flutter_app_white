@@ -75,6 +75,7 @@ class _ForgetPasswordScreenState extends State<ForgetPasswordScreen> {
         return GradientDecoratedBackground(
           child: Scaffold(
             backgroundColor: Colors.transparent,
+            extendBodyBehindAppBar: true,
             appBar: AppBar(
               backgroundColor: Colors.transparent,
               elevation: 0,
