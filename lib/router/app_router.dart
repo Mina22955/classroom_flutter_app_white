@@ -11,6 +11,7 @@ import '../screens/auth/reset_password_screen.dart';
 import '../screens/subscription/plans_screen.dart';
 import '../screens/subscription/payment_screen.dart';
 import '../screens/subscription/plan_selection_screen.dart';
+import '../screens/subscription/payment_confirmation_screen.dart';
 import '../screens/home_screen.dart';
 import '../screens/profile_screen.dart';
 import '../screens/classroom_screen.dart';
@@ -31,6 +32,7 @@ class AppRouter {
       }
 
       final isAuthenticated = authProvider.isAuthenticated;
+      final isSubscribed = authProvider.isSubscribed;
       final isLoginRoute = state.uri.path == '/login';
       final isSignupRoute = state.uri.path == '/signup';
       final isPlanSelectionRoute = state.uri.path == '/plan-selection';
@@ -39,20 +41,30 @@ class AppRouter {
       final isResetPasswordRoute = state.uri.path == '/reset-password';
       final isPlansRoute = state.uri.path == '/plans';
       final isPaymentRoute = state.uri.path == '/payment';
+      final isPaymentConfirmationRoute =
+          state.uri.path == '/payment-confirmation';
+
+      // If user is authenticated but not subscribed (pending user), redirect to plan selection
+      if (isAuthenticated &&
+          !isSubscribed &&
+          !isPlanSelectionRoute &&
+          !isPaymentConfirmationRoute) {
+        return '/plan-selection';
+      }
 
       // If user is authenticated and trying to access auth screens, redirect to home
       if (isAuthenticated &&
+          isSubscribed &&
           (isLoginRoute ||
               isSignupRoute ||
-              isPlanSelectionRoute ||
               isForgetPasswordRoute ||
               isOtpRoute ||
               isResetPasswordRoute)) {
         return '/home';
       }
 
-      // If user is authenticated and tries to access plans or payment, redirect to home
-      if (isAuthenticated && (isPlansRoute || isPaymentRoute)) {
+      // If user is authenticated and subscribed, and tries to access plans or payment, redirect to home
+      if (isAuthenticated && isSubscribed && (isPlansRoute || isPaymentRoute)) {
         return '/home';
       }
 
@@ -123,6 +135,14 @@ class AppRouter {
         path: '/payment',
         name: 'payment',
         builder: (context, state) => const PaymentScreen(),
+      ),
+      GoRoute(
+        path: '/payment-confirmation',
+        name: 'payment-confirmation',
+        builder: (context, state) {
+          final extra = state.extra as Map<String, dynamic>?;
+          return PaymentConfirmationScreen(selectedPlan: extra);
+        },
       ),
       GoRoute(
         path: '/home',

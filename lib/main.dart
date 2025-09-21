@@ -62,11 +62,7 @@ class _MyAppState extends State<MyApp> {
             routerConfig: AppRouter.router,
             builder: (context, child) {
               // Direct app display without any loading screen
-              return SafeArea(
-                top: true,
-                bottom: false,
-                child: child ?? const SizedBox.shrink(),
-              );
+              return child ?? const SizedBox.shrink();
             },
             locale: const Locale('ar', 'SA'),
             localizationsDelegates: const [

@@ -86,8 +86,8 @@ class SubscriptionExpiredDialog extends StatelessWidget {
                 height: 50,
                 child: ElevatedButton(
                   onPressed: () {
-                    // TODO: Implement renew subscription functionality
-                    print('تجديد الاشتراك button pressed');
+                    Navigator.of(context).pop(); // Close the dialog
+                    context.push('/plan-selection');
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF0A84FF),

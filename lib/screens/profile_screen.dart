@@ -435,7 +435,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             child: InkWell(
                               borderRadius: BorderRadius.circular(12),
                               onTap: () {
-                                // TODO: Navigate to upgrade flow
+                                _showUpgradeConfirmation(context);
                               },
                               child: Container(
                                 height: 42,
@@ -571,399 +571,523 @@ class _ProfileScreenState extends State<ProfileScreen> {
         text: student['email'] == 'غير محدد' ? '' : student['email']);
     final passwordController = TextEditingController();
 
+    final scrollController = ScrollController();
+
     showDialog(
       context: context,
       builder: (ctx) {
         return Directionality(
           textDirection: TextDirection.rtl,
-          child: Dialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Container(
-              decoration: BoxDecoration(
-                color: const Color(0xFFF8F9FA),
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 20,
-                    offset: const Offset(0, 10),
+          child: Scaffold(
+            resizeToAvoidBottomInset: true,
+            backgroundColor: Colors.transparent,
+            body: Center(
+              child: Dialog(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Container(
+                  constraints: BoxConstraints(
+                    maxHeight: MediaQuery.of(context).viewInsets.bottom > 0
+                        ? MediaQuery.of(context).size.height *
+                            0.6 // Smaller when keyboard is open
+                        : MediaQuery.of(context).size.height *
+                            0.8, // Normal size when keyboard is closed
+                    maxWidth: MediaQuery.of(context).size.width * 0.9,
                   ),
-                ],
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Header
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(24),
-                    decoration: const BoxDecoration(
-                      color: Color(0xFF0A84FF),
-                      borderRadius: BorderRadius.only(
-                        topLeft: Radius.circular(20),
-                        topRight: Radius.circular(20),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8F9FA),
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 20,
+                        offset: const Offset(0, 10),
                       ),
-                    ),
-                    child: const Text(
-                      'تعديل الملف الشخصي',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
+                    ],
                   ),
-                  // Form Content
-                  Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      children: [
-                        // Name Field
-                        Container(
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: Colors.grey.withOpacity(0.3),
-                              width: 1,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.05),
-                                blurRadius: 8,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: TextField(
-                            controller: nameController,
-                            decoration: const InputDecoration(
-                              hintText: 'الاسم',
-                              hintStyle: TextStyle(
-                                color: Color(0xFF9CA3AF),
-                                fontSize: 16,
-                              ),
-                              prefixIcon: Icon(
-                                Icons.person_outline,
-                                color: Color(0xFF0A84FF),
-                              ),
-                              border: InputBorder.none,
-                              contentPadding: EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 16,
-                              ),
-                            ),
-                            style: const TextStyle(
-                              color: Color(0xFF1F2937),
-                              fontSize: 16,
-                              fontWeight: FontWeight.w500,
-                            ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Header
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(24),
+                        decoration: const BoxDecoration(
+                          color: Color(0xFF0A84FF),
+                          borderRadius: BorderRadius.only(
+                            topLeft: Radius.circular(20),
+                            topRight: Radius.circular(20),
                           ),
                         ),
-                        const SizedBox(height: 16),
-                        // Phone Field
-                        Container(
-                          decoration: BoxDecoration(
+                        child: const Text(
+                          'تعديل الملف الشخصي',
+                          style: TextStyle(
                             color: Colors.white,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: Colors.grey.withOpacity(0.3),
-                              width: 1,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.05),
-                                blurRadius: 8,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
                           ),
-                          child: TextField(
-                            controller: phoneController,
-                            keyboardType: TextInputType.phone,
-                            decoration: const InputDecoration(
-                              hintText: 'رقم الهاتف',
-                              hintStyle: TextStyle(
-                                color: Color(0xFF9CA3AF),
-                                fontSize: 16,
-                              ),
-                              prefixIcon: Icon(
-                                Icons.phone_outlined,
-                                color: Color(0xFF0A84FF),
-                              ),
-                              border: InputBorder.none,
-                              contentPadding: EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 16,
-                              ),
-                            ),
-                            style: const TextStyle(
-                              color: Color(0xFF1F2937),
-                              fontSize: 16,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
+                          textAlign: TextAlign.center,
                         ),
-                        const SizedBox(height: 16),
-                        // Email Field
-                        Container(
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: Colors.grey.withOpacity(0.3),
-                              width: 1,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.05),
-                                blurRadius: 8,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
+                      ),
+                      // Form Content
+                      Flexible(
+                        child: SingleChildScrollView(
+                          controller: scrollController,
+                          padding: EdgeInsets.all(24).copyWith(
+                            bottom: MediaQuery.of(context).viewInsets.bottom > 0
+                                ? 16
+                                : 24,
                           ),
-                          child: TextField(
-                            controller: emailController,
-                            keyboardType: TextInputType.emailAddress,
-                            decoration: const InputDecoration(
-                              hintText: 'البريد الإلكتروني',
-                              hintStyle: TextStyle(
-                                color: Color(0xFF9CA3AF),
-                                fontSize: 16,
-                              ),
-                              prefixIcon: Icon(
-                                Icons.email_outlined,
-                                color: Color(0xFF0A84FF),
-                              ),
-                              border: InputBorder.none,
-                              contentPadding: EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 16,
-                              ),
-                            ),
-                            style: const TextStyle(
-                              color: Color(0xFF1F2937),
-                              fontSize: 16,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        // Password Field
-                        Container(
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: Colors.grey.withOpacity(0.3),
-                              width: 1,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.05),
-                                blurRadius: 8,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: TextField(
-                            controller: passwordController,
-                            obscureText: true,
-                            decoration: const InputDecoration(
-                              hintText: 'كلمة المرور الجديدة (اختياري)',
-                              hintStyle: TextStyle(
-                                color: Color(0xFF9CA3AF),
-                                fontSize: 16,
-                              ),
-                              prefixIcon: Icon(
-                                Icons.lock_outline,
-                                color: Color(0xFF0A84FF),
-                              ),
-                              border: InputBorder.none,
-                              contentPadding: EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 16,
-                              ),
-                            ),
-                            style: const TextStyle(
-                              color: Color(0xFF1F2937),
-                              fontSize: 16,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-                        // Action Buttons
-                        Row(
-                          children: [
-                            // Cancel Button
-                            Expanded(
-                              child: Container(
-                                height: 50,
+                          child: Column(
+                            children: [
+                              // Name Field
+                              Container(
                                 decoration: BoxDecoration(
-                                  color: Colors.transparent,
+                                  color: Colors.white,
                                   borderRadius: BorderRadius.circular(12),
                                   border: Border.all(
-                                    color: const Color(0xFFD1D5DB),
-                                    width: 1.5,
+                                    color: Colors.grey.withOpacity(0.3),
+                                    width: 1,
                                   ),
-                                ),
-                                child: Material(
-                                  color: Colors.transparent,
-                                  child: InkWell(
-                                    borderRadius: BorderRadius.circular(12),
-                                    onTap: () => Navigator.of(ctx).pop(),
-                                    child: const Center(
-                                      child: Text(
-                                        'إلغاء',
-                                        style: TextStyle(
-                                          color: Color(0xFF6B7280),
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.05),
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 2),
                                     ),
+                                  ],
+                                ),
+                                child: TextField(
+                                  controller: nameController,
+                                  decoration: const InputDecoration(
+                                    hintText: 'الاسم',
+                                    hintStyle: TextStyle(
+                                      color: Color(0xFF9CA3AF),
+                                      fontSize: 16,
+                                    ),
+                                    prefixIcon: Icon(
+                                      Icons.person_outline,
+                                      color: Color(0xFF0A84FF),
+                                    ),
+                                    border: InputBorder.none,
+                                    contentPadding: EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                      vertical: 16,
+                                    ),
+                                  ),
+                                  style: const TextStyle(
+                                    color: Color(0xFF1F2937),
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w500,
                                   ),
                                 ),
                               ),
-                            ),
-                            const SizedBox(width: 12),
-                            // Save Button
-                            Expanded(
-                              child: Consumer<AuthProvider>(
-                                builder: (context, authProvider, child) {
-                                  return Container(
-                                    height: 50,
-                                    decoration: BoxDecoration(
-                                      gradient: const LinearGradient(
-                                        colors: [
-                                          Color(0xFF0A84FF),
-                                          Color(0xFF007AFF)
-                                        ],
-                                        begin: Alignment.topLeft,
-                                        end: Alignment.bottomRight,
-                                      ),
-                                      borderRadius: BorderRadius.circular(12),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: const Color(0xFF0A84FF)
-                                              .withOpacity(0.3),
-                                          blurRadius: 8,
-                                          offset: const Offset(0, 4),
-                                        ),
-                                      ],
+                              SizedBox(
+                                  height:
+                                      MediaQuery.of(context).viewInsets.bottom >
+                                              0
+                                          ? 12
+                                          : 16),
+                              // Phone Field
+                              Container(
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: Colors.grey.withOpacity(0.3),
+                                    width: 1,
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.05),
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 2),
                                     ),
-                                    child: Material(
-                                      color: Colors.transparent,
-                                      child: InkWell(
+                                  ],
+                                ),
+                                child: TextField(
+                                  controller: phoneController,
+                                  keyboardType: TextInputType.phone,
+                                  decoration: const InputDecoration(
+                                    hintText: 'رقم الهاتف',
+                                    hintStyle: TextStyle(
+                                      color: Color(0xFF9CA3AF),
+                                      fontSize: 16,
+                                    ),
+                                    prefixIcon: Icon(
+                                      Icons.phone_outlined,
+                                      color: Color(0xFF0A84FF),
+                                    ),
+                                    border: InputBorder.none,
+                                    contentPadding: EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                      vertical: 16,
+                                    ),
+                                  ),
+                                  style: const TextStyle(
+                                    color: Color(0xFF1F2937),
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                              SizedBox(
+                                  height:
+                                      MediaQuery.of(context).viewInsets.bottom >
+                                              0
+                                          ? 12
+                                          : 16),
+                              // Email Field
+                              Container(
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: Colors.grey.withOpacity(0.3),
+                                    width: 1,
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.05),
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: TextField(
+                                  controller: emailController,
+                                  keyboardType: TextInputType.emailAddress,
+                                  decoration: const InputDecoration(
+                                    hintText: 'البريد الإلكتروني',
+                                    hintStyle: TextStyle(
+                                      color: Color(0xFF9CA3AF),
+                                      fontSize: 16,
+                                    ),
+                                    prefixIcon: Icon(
+                                      Icons.email_outlined,
+                                      color: Color(0xFF0A84FF),
+                                    ),
+                                    border: InputBorder.none,
+                                    contentPadding: EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                      vertical: 16,
+                                    ),
+                                  ),
+                                  style: const TextStyle(
+                                    color: Color(0xFF1F2937),
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                              SizedBox(
+                                  height:
+                                      MediaQuery.of(context).viewInsets.bottom >
+                                              0
+                                          ? 12
+                                          : 16),
+                              // Password Field
+                              Container(
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: Colors.grey.withOpacity(0.3),
+                                    width: 1,
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.05),
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: TextField(
+                                  controller: passwordController,
+                                  obscureText: true,
+                                  decoration: const InputDecoration(
+                                    hintText: 'كلمة المرور الجديدة (اختياري)',
+                                    hintStyle: TextStyle(
+                                      color: Color(0xFF9CA3AF),
+                                      fontSize: 16,
+                                    ),
+                                    prefixIcon: Icon(
+                                      Icons.lock_outline,
+                                      color: Color(0xFF0A84FF),
+                                    ),
+                                    border: InputBorder.none,
+                                    contentPadding: EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                      vertical: 16,
+                                    ),
+                                  ),
+                                  style: const TextStyle(
+                                    color: Color(0xFF1F2937),
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                              SizedBox(
+                                  height:
+                                      MediaQuery.of(context).viewInsets.bottom >
+                                              0
+                                          ? 16
+                                          : 24),
+                              // Action Buttons
+                              Row(
+                                children: [
+                                  // Cancel Button
+                                  Expanded(
+                                    child: Container(
+                                      height: 50,
+                                      decoration: BoxDecoration(
+                                        color: Colors.transparent,
                                         borderRadius: BorderRadius.circular(12),
-                                        onTap: authProvider.isLoading
-                                            ? null
-                                            : () async {
-                                                final newName =
-                                                    nameController.text.trim();
-                                                final newPhone =
-                                                    phoneController.text.trim();
-                                                final newEmail =
-                                                    emailController.text.trim();
-                                                final newPassword =
-                                                    passwordController.text
-                                                        .trim();
-
-                                                if (newName.isEmpty ||
-                                                    newPhone.isEmpty ||
-                                                    newEmail.isEmpty) {
-                                                  ScaffoldMessenger.of(context)
-                                                      .showSnackBar(
-                                                    const SnackBar(
-                                                      content: Text(
-                                                          'جميع الحقول مطلوبة'),
-                                                      backgroundColor:
-                                                          Colors.red,
-                                                      behavior: SnackBarBehavior
-                                                          .floating,
-                                                    ),
-                                                  );
-                                                  return;
-                                                }
-
-                                                final success =
-                                                    await authProvider
-                                                        .updateProfile(
-                                                  name: newName,
-                                                  phone: newPhone,
-                                                  email: newEmail,
-                                                  password:
-                                                      newPassword.isNotEmpty
-                                                          ? newPassword
-                                                          : null,
-                                                );
-
-                                                if (success) {
-                                                  Navigator.of(ctx).pop();
-                                                  ScaffoldMessenger.of(context)
-                                                      .showSnackBar(
-                                                    const SnackBar(
-                                                      content: Text(
-                                                          'تم حفظ التعديلات بنجاح'),
-                                                      backgroundColor:
-                                                          Colors.green,
-                                                      behavior: SnackBarBehavior
-                                                          .floating,
-                                                    ),
-                                                  );
-                                                } else {
-                                                  ScaffoldMessenger.of(context)
-                                                      .showSnackBar(
-                                                    SnackBar(
-                                                      content: Text(authProvider
-                                                              .error ??
-                                                          'فشل في تحديث الملف الشخصي'),
-                                                      backgroundColor:
-                                                          Colors.red,
-                                                      behavior: SnackBarBehavior
-                                                          .floating,
-                                                    ),
-                                                  );
-                                                }
-                                              },
-                                        child: Center(
-                                          child: authProvider.isLoading
-                                              ? const SizedBox(
-                                                  width: 20,
-                                                  height: 20,
-                                                  child:
-                                                      CircularProgressIndicator(
-                                                    color: Colors.white,
-                                                    strokeWidth: 2,
-                                                  ),
-                                                )
-                                              : const Text(
-                                                  'حفظ',
-                                                  style: TextStyle(
-                                                    color: Colors.white,
-                                                    fontSize: 16,
-                                                    fontWeight: FontWeight.w600,
-                                                  ),
-                                                ),
+                                        border: Border.all(
+                                          color: const Color(0xFFD1D5DB),
+                                          width: 1.5,
+                                        ),
+                                      ),
+                                      child: Material(
+                                        color: Colors.transparent,
+                                        child: InkWell(
+                                          borderRadius:
+                                              BorderRadius.circular(12),
+                                          onTap: () => Navigator.of(ctx).pop(),
+                                          child: const Center(
+                                            child: Text(
+                                              'إلغاء',
+                                              style: TextStyle(
+                                                color: Color(0xFF6B7280),
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                          ),
                                         ),
                                       ),
                                     ),
-                                  );
-                                },
+                                  ),
+                                  const SizedBox(width: 12),
+                                  // Save Button
+                                  Expanded(
+                                    child: Consumer<AuthProvider>(
+                                      builder: (context, authProvider, child) {
+                                        return Container(
+                                          height: 50,
+                                          decoration: BoxDecoration(
+                                            gradient: const LinearGradient(
+                                              colors: [
+                                                Color(0xFF0A84FF),
+                                                Color(0xFF007AFF)
+                                              ],
+                                              begin: Alignment.topLeft,
+                                              end: Alignment.bottomRight,
+                                            ),
+                                            borderRadius:
+                                                BorderRadius.circular(12),
+                                            boxShadow: [
+                                              BoxShadow(
+                                                color: const Color(0xFF0A84FF)
+                                                    .withOpacity(0.3),
+                                                blurRadius: 8,
+                                                offset: const Offset(0, 4),
+                                              ),
+                                            ],
+                                          ),
+                                          child: Material(
+                                            color: Colors.transparent,
+                                            child: InkWell(
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                              onTap: authProvider.isLoading
+                                                  ? null
+                                                  : () async {
+                                                      final newName =
+                                                          nameController.text
+                                                              .trim();
+                                                      final newPhone =
+                                                          phoneController.text
+                                                              .trim();
+                                                      final newEmail =
+                                                          emailController.text
+                                                              .trim();
+                                                      final newPassword =
+                                                          passwordController
+                                                              .text
+                                                              .trim();
+
+                                                      if (newName.isEmpty ||
+                                                          newPhone.isEmpty ||
+                                                          newEmail.isEmpty) {
+                                                        ScaffoldMessenger.of(
+                                                                context)
+                                                            .showSnackBar(
+                                                          const SnackBar(
+                                                            content: Text(
+                                                                'جميع الحقول مطلوبة'),
+                                                            backgroundColor:
+                                                                Colors.red,
+                                                            behavior:
+                                                                SnackBarBehavior
+                                                                    .floating,
+                                                          ),
+                                                        );
+                                                        return;
+                                                      }
+
+                                                      final success =
+                                                          await authProvider
+                                                              .updateProfile(
+                                                        name: newName,
+                                                        phone: newPhone,
+                                                        email: newEmail,
+                                                        password: newPassword
+                                                                .isNotEmpty
+                                                            ? newPassword
+                                                            : null,
+                                                      );
+
+                                                      if (success) {
+                                                        Navigator.of(ctx).pop();
+                                                        ScaffoldMessenger.of(
+                                                                context)
+                                                            .showSnackBar(
+                                                          const SnackBar(
+                                                            content: Text(
+                                                                'تم حفظ التعديلات بنجاح'),
+                                                            backgroundColor:
+                                                                Colors.green,
+                                                            behavior:
+                                                                SnackBarBehavior
+                                                                    .floating,
+                                                          ),
+                                                        );
+                                                      } else {
+                                                        ScaffoldMessenger.of(
+                                                                context)
+                                                            .showSnackBar(
+                                                          SnackBar(
+                                                            content: Text(
+                                                                authProvider
+                                                                        .error ??
+                                                                    'فشل في تحديث الملف الشخصي'),
+                                                            backgroundColor:
+                                                                Colors.red,
+                                                            behavior:
+                                                                SnackBarBehavior
+                                                                    .floating,
+                                                          ),
+                                                        );
+                                                      }
+                                                    },
+                                              child: Center(
+                                                child: authProvider.isLoading
+                                                    ? const SizedBox(
+                                                        width: 20,
+                                                        height: 20,
+                                                        child:
+                                                            CircularProgressIndicator(
+                                                          color: Colors.white,
+                                                          strokeWidth: 2,
+                                                        ),
+                                                      )
+                                                    : const Text(
+                                                        'حفظ',
+                                                        style: TextStyle(
+                                                          color: Colors.white,
+                                                          fontSize: 16,
+                                                          fontWeight:
+                                                              FontWeight.w600,
+                                                        ),
+                                                      ),
+                                              ),
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
             ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showUpgradeConfirmation(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return Directionality(
+          textDirection: TextDirection.rtl,
+          child: AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            title: const Text(
+              'تأكيد ترقية الخطة',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.black,
+              ),
+            ),
+            content: const Text(
+              'في حالة الدخول لهذه الصفحة سيكون الحساب معلق لحين اتمام الدفع',
+              style: TextStyle(
+                fontSize: 14,
+                color: Color(0xFF6B7280),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text(
+                  'إلغاء',
+                  style: TextStyle(
+                    color: Color(0xFF6B7280),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              Container(
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF0A84FF), Color(0xFF007AFF)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: TextButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    context.push('/plan-selection');
+                  },
+                  child: const Text(
+                    'متابعة',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         );
       },
