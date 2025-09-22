@@ -16,6 +16,8 @@ class PlansScreen extends StatefulWidget {
 class _PlansScreenState extends State<PlansScreen> {
   List<Map<String, dynamic>> _plans = [];
   bool _isLoading = true;
+  String? _selectedPlanId;
+  Map<String, dynamic>? _selectedPlan;
 
   @override
   void initState() {
@@ -35,23 +37,19 @@ class _PlansScreenState extends State<PlansScreen> {
     }
   }
 
-  Future<void> _selectPlan(Map<String, dynamic> plan) async {
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+  void _selectPlan(Map<String, dynamic> plan) {
+    final planId = plan['id']?.toString() ??
+        plan['_id']?.toString() ??
+        plan['planId']?.toString();
+    setState(() {
+      _selectedPlanId = planId;
+      _selectedPlan = plan;
+    });
+  }
 
-    // Create checkout session
-    final checkoutUrl = await authProvider.createCheckoutSession(plan['id']);
-
-    if (checkoutUrl != null && mounted) {
-      // Navigate to payment screen with checkout URL
-      context.go('/payment', extra: {'url': checkoutUrl});
-    } else if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(authProvider.error ?? 'حدث خطأ في إنشاء جلسة الدفع'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
+  void _proceed() {
+    if (_selectedPlan == null) return;
+    context.go('/signup', extra: {'plan': _selectedPlan});
   }
 
   @override
@@ -59,12 +57,34 @@ class _PlansScreenState extends State<PlansScreen> {
     return GradientDecoratedBackground(
       child: Scaffold(
         backgroundColor: Colors.transparent,
+        floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+        floatingActionButton: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: SizedBox(
+            width: double.infinity,
+            child: FloatingActionButton.extended(
+              onPressed: _selectedPlanId != null ? _proceed : null,
+              backgroundColor: _selectedPlanId != null
+                  ? const Color(0xFF0A84FF)
+                  : Colors.grey,
+              foregroundColor: Colors.white,
+              elevation: 2,
+              label: const Text(
+                'متابعة إنشاء الحساب',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ),
+        ),
         appBar: AppBar(
           backgroundColor: Colors.transparent,
           elevation: 0,
           leading: IconButton(
             icon: const Icon(Icons.arrow_back, color: Colors.black),
-            onPressed: () => context.go('/signup'),
+            onPressed: () => context.go('/login'),
           ),
           title: const Text(
             'اختر خطة الاشتراك',
@@ -80,7 +100,7 @@ class _PlansScreenState extends State<PlansScreen> {
           isLoading: _isLoading,
           child: SafeArea(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
+              padding: const EdgeInsets.fromLTRB(24, 24, 24, 110),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -112,14 +132,23 @@ class _PlansScreenState extends State<PlansScreen> {
 
                   // Plans List
                   if (_plans.isNotEmpty)
-                    ..._plans.map((plan) => Padding(
-                          padding: const EdgeInsets.only(bottom: 20),
-                          child: PlanCard(
-                            plan: plan,
-                            isSelected: false,
-                            onTap: () => _selectPlan(plan),
-                          ),
-                        ))
+                    ..._plans.asMap().entries.map((entry) {
+                      final index = entry.key;
+                      final plan = entry.value;
+                      final planId = plan['id']?.toString() ??
+                          plan['_id']?.toString() ??
+                          plan['planId']?.toString() ??
+                          index.toString();
+                      final isSelected = _selectedPlanId == planId;
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 20),
+                        child: PlanCard(
+                          plan: plan,
+                          isSelected: isSelected,
+                          onTap: () => _selectPlan(plan),
+                        ),
+                      );
+                    })
                   else if (!_isLoading)
                     Center(
                       child: Column(
@@ -157,13 +186,13 @@ class _PlansScreenState extends State<PlansScreen> {
                       ),
                     ),
 
-                  const SizedBox(height: 40),
+                  const SizedBox(height: 12),
 
                   // Back Button
                   TextButton(
-                    onPressed: () => context.go('/signup'),
+                    onPressed: () => context.go('/login'),
                     child: Text(
-                      'العودة لتسجيل البيانات',
+                      'العودة لتسجيل الدخول',
                       style: TextStyle(
                         color: Colors.grey[400],
                         fontSize: 16,

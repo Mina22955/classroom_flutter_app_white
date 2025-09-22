@@ -51,7 +51,7 @@ class _SignupWithPaymentScreenState extends State<SignupWithPaymentScreen> {
 
     if (_selectedPlan == null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) context.go('/plan-selection');
+        if (mounted) context.go('/plans');
       });
     }
   }
@@ -212,7 +212,7 @@ class _SignupWithPaymentScreenState extends State<SignupWithPaymentScreen> {
                                 ],
                               ),
                               IconButton(
-                                onPressed: () => context.go('/plan-selection'),
+                                onPressed: () => context.go('/plans'),
                                 icon: const Icon(
                                   Icons.edit,
                                   color: Color(0xFF0A84FF),

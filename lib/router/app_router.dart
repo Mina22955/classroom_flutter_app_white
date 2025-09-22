@@ -44,12 +44,13 @@ class AppRouter {
       final isPaymentConfirmationRoute =
           state.uri.path == '/payment-confirmation';
 
-      // If user is authenticated but not subscribed (pending user), redirect to plan selection
-      if (isAuthenticated &&
-          !isSubscribed &&
-          !isPlanSelectionRoute &&
-          !isPaymentConfirmationRoute) {
-        return '/plan-selection';
+      // If user is authenticated but not subscribed (pending user), allow payment/plan-selection flow, but do not hijack signup or plans pages
+      if (isAuthenticated && !isSubscribed) {
+        if (!(isPlanSelectionRoute ||
+            isPaymentConfirmationRoute ||
+            isPaymentRoute)) {
+          return '/plan-selection';
+        }
       }
 
       // If user is authenticated and trying to access auth screens, redirect to home
@@ -68,7 +69,7 @@ class AppRouter {
         return '/home';
       }
 
-      // If user is not authenticated and trying to access protected routes (except auth and payment flows), redirect to login
+      // If user is not authenticated and trying to access protected routes (except auth and signup/plans/payment flows), redirect to login
       if (!isAuthenticated &&
           !isLoginRoute &&
           !isSignupRoute &&

@@ -15,6 +15,9 @@ class AuthProvider extends ChangeNotifier {
   String? _error;
   String? _pendingId;
   String? _deviceToken;
+  // In-memory cache for current plan details (lives for app session only)
+  Map<String, dynamic>? _cachedPlanDetails;
+  bool _hasFetchedPlanDetailsThisSession = false;
 
   // Getters
   bool get isLoading => _isLoading;
@@ -219,6 +222,40 @@ class AuthProvider extends ChangeNotifier {
         'plan': '',
         'status': 'inactive',
       };
+    }
+  }
+
+  // Get current plan details once per app session
+  Future<Map<String, dynamic>?> getCachedCurrentPlanDetails() async {
+    if (_user == null) {
+      print('AuthProvider: User is null, cannot fetch plan details');
+      return null;
+    }
+
+    final dynamic planField = _user!['plan'];
+    if (planField == null || planField.toString().isEmpty) {
+      print('AuthProvider: No plan assigned to user, skipping plan details');
+      return null;
+    }
+
+    if (_hasFetchedPlanDetailsThisSession && _cachedPlanDetails != null) {
+      print('AuthProvider: Returning cached plan details for this session');
+      return _cachedPlanDetails;
+    }
+
+    try {
+      final String planId = planField.toString();
+      print('AuthProvider: Fetching plan details for planId: $planId');
+      final Map<String, dynamic> planDetails = await _apiService.getPlanDetails(
+        planId: planId,
+        accessToken: _token,
+      );
+      _cachedPlanDetails = planDetails;
+      _hasFetchedPlanDetailsThisSession = true;
+      return _cachedPlanDetails;
+    } catch (e) {
+      print('AuthProvider: Error fetching plan details: $e');
+      return null;
     }
   }
 
@@ -816,6 +853,9 @@ class AuthProvider extends ChangeNotifier {
     _isAuthenticated = false;
     _error = null;
     _pendingId = null;
+    // Clear session cache
+    _cachedPlanDetails = null;
+    _hasFetchedPlanDetailsThisSession = false;
 
     // Notify listeners
     notifyListeners();
@@ -838,6 +878,9 @@ class AuthProvider extends ChangeNotifier {
       _isAuthenticated = false;
       _error = null;
       _pendingId = null;
+      // Clear session cache
+      _cachedPlanDetails = null;
+      _hasFetchedPlanDetailsThisSession = false;
 
       // Clear stored data
       await _clearStoredLoginData();
@@ -863,6 +906,9 @@ class AuthProvider extends ChangeNotifier {
       _error = null;
       _pendingId = null;
       _setLoading(false);
+      // Clear session cache
+      _cachedPlanDetails = null;
+      _hasFetchedPlanDetailsThisSession = false;
       notifyListeners();
 
       return {

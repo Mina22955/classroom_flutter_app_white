@@ -254,7 +254,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                   TextButton(
-                    onPressed: () => context.go('/plan-selection'),
+                    onPressed: () => context.go('/plans'),
                     child: const Text(
                       'إنشاء حساب جديد',
                       style: TextStyle(

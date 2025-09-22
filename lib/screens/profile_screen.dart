@@ -26,29 +26,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _loadPlanDetails() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final user = authProvider.user;
-
-    if (user != null && user['plan'] != null) {
+    setState(() {
+      _isLoadingPlan = true;
+    });
+    try {
+      final cached = await authProvider.getCachedCurrentPlanDetails();
+      if (!mounted) return;
       setState(() {
-        _isLoadingPlan = true;
+        _planDetails = cached;
+        _isLoadingPlan = false;
       });
-
-      try {
-        final planDetails = await ApiService().getPlanDetails(
-          planId: user['plan'].toString(),
-          accessToken: authProvider.token,
-        );
-
-        setState(() {
-          _planDetails = planDetails;
-          _isLoadingPlan = false;
-        });
-      } catch (e) {
-        print('Error loading plan details: $e');
-        setState(() {
-          _isLoadingPlan = false;
-        });
-      }
+    } catch (e) {
+      print('ProfileScreen: Error loading plan details via provider: $e');
+      if (!mounted) return;
+      setState(() {
+        _isLoadingPlan = false;
+      });
     }
   }
 
