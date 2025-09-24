@@ -1402,14 +1402,106 @@ class ApiService {
     }
   }
 
+  // Get user profile
+  Future<Map<String, dynamic>?> getUserProfile({
+    required String userId,
+    String? accessToken,
+  }) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/student/$userId/profile');
+      final headers = {
+        'Content-Type': 'application/json',
+        if (accessToken != null && accessToken.isNotEmpty)
+          'Authorization': 'Bearer $accessToken',
+      };
+
+      print('Making API call to: $uri');
+      print('Headers: $headers');
+
+      final response = await http.get(uri, headers: headers);
+
+      print('Response status: ${response.statusCode}');
+      print('Response body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        print('API Response for user profile: $data');
+
+        // Handle different response formats
+        if (data is Map<String, dynamic>) {
+          // Check if user data is nested
+          if (data.containsKey('user')) {
+            return data['user'] as Map<String, dynamic>;
+          } else if (data.containsKey('student')) {
+            return data['student'] as Map<String, dynamic>;
+          } else if (data.containsKey('data')) {
+            return data['data'] as Map<String, dynamic>;
+          } else {
+            return data;
+          }
+        }
+        return null;
+      } else {
+        print(
+            'Error fetching user profile: ${response.statusCode} - ${response.body}');
+        return null;
+      }
+    } catch (e) {
+      print('Exception fetching user profile: $e');
+      return null;
+    }
+  }
+
+  // Get unified student data (replaces multiple API calls)
+  Future<Map<String, dynamic>?> getStudentData({
+    required String studentId,
+    String? accessToken,
+  }) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/student/$studentId/data');
+      final headers = {
+        'Content-Type': 'application/json',
+        if (accessToken != null && accessToken.isNotEmpty)
+          'Authorization': 'Bearer $accessToken',
+      };
+
+      print('Making API call to: $uri');
+      print('Headers: $headers');
+
+      final response = await http.get(uri, headers: headers);
+
+      print('Response status: ${response.statusCode}');
+      print('Response body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        print('API Response for student data: $data');
+        return data;
+      } else {
+        print(
+            'Error fetching student data: ${response.statusCode} - ${response.body}');
+        return null;
+      }
+    } catch (e) {
+      print('Exception fetching student data: $e');
+      return null;
+    }
+  }
+
   // Submit task solution
   Future<Map<String, dynamic>> submitTaskSolution({
+    required String studentId,
     required String classId,
     required String taskId,
     required String filePath,
     String? accessToken,
   }) async {
     try {
+      // Validate student ID
+      if (studentId.isEmpty) {
+        throw Exception('معرف الطالب غير متوفر');
+      }
+
       // Validate file path
       if (filePath.isEmpty) {
         throw Exception('مسار الملف غير صحيح');
@@ -1427,8 +1519,9 @@ class ApiService {
         throw Exception('حجم الملف كبير جداً (الحد الأقصى 10 ميجابايت)');
       }
 
+      // Build the API endpoint with studentId, classId, and taskId
       final uri = Uri.parse(
-          '$baseUrl/api/student/class/$classId/task/$taskId/solution');
+          '$baseUrl/api/student/$studentId/class/$classId/task/$taskId/solution');
 
       // Create multipart request for file upload
       var request = http.MultipartRequest('POST', uri);
@@ -1470,6 +1563,9 @@ class ApiService {
       ));
 
       print('Making API call to: $uri');
+      print('Student ID: $studentId');
+      print('Class ID: $classId');
+      print('Task ID: $taskId');
       print('File path: $filePath');
       print('File size: ${fileSize} bytes');
       print('Content type: $contentType');
@@ -1481,7 +1577,7 @@ class ApiService {
       print('Response status: ${response.statusCode}');
       print('Response body: ${response.body}');
 
-      if (response.statusCode == 201 || response.statusCode == 200) {
+      if (response.statusCode == 201) {
         final data = jsonDecode(response.body);
         print('API Response for task submission: $data');
 
@@ -1501,27 +1597,8 @@ class ApiService {
               ? (errorData['message'] ??
                   errorData['error'] ??
                   errorData['msg'] ??
-                  'خطا في تسليم الامتحان')
-              : 'خطا في تسليم الامتحان';
-
-          // Translate common error messages to Arabic
-          if (errorMessage.toLowerCase().contains('file too large') ||
-              errorMessage.toLowerCase().contains('file size')) {
-            errorMessage = 'حجم الملف كبير جداً';
-          } else if (errorMessage.toLowerCase().contains('invalid file') ||
-              errorMessage.toLowerCase().contains('unsupported')) {
-            errorMessage = 'نوع الملف غير مدعوم';
-          } else if (errorMessage.toLowerCase().contains('unauthorized') ||
-              errorMessage.toLowerCase().contains('forbidden')) {
-            errorMessage = 'غير مخول لتسليم هذا الامتحان';
-          } else if (errorMessage.toLowerCase().contains('not found')) {
-            errorMessage = 'الامتحان غير موجود';
-          } else if (errorMessage.toLowerCase().contains('expired')) {
-            errorMessage = 'انتهت صلاحية الامتحان';
-          } else if (errorMessage.toLowerCase().contains('network') ||
-              errorMessage.toLowerCase().contains('connection')) {
-            errorMessage = 'خطأ في الاتصال بالإنترنت';
-          }
+                  'فشل في تسليم الحل')
+              : 'فشل في تسليم الحل';
 
           throw Exception(errorMessage);
         } catch (jsonError) {
@@ -1539,7 +1616,7 @@ class ApiService {
           } else if (response.statusCode == 500) {
             throw Exception('خطأ في الخادم، يرجى المحاولة لاحقاً');
           } else {
-            throw Exception('خطا في تسليم الامتحان');
+            throw Exception('فشل في تسليم الحل');
           }
         }
       }

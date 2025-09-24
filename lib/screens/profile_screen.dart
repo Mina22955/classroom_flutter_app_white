@@ -24,6 +24,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _loadPlanDetails();
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Refresh data when screen becomes visible to get updated plan info
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _refreshPlanDetails();
+    });
+  }
+
+  Future<void> _refreshPlanDetails() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    try {
+      // Get fresh student data to update plan information
+      final studentData = await authProvider.getFreshStudentData();
+      if (studentData != null && studentData['plan'] != null) {
+        setState(() {
+          _planDetails = studentData['plan'];
+        });
+      }
+    } catch (e) {
+      print('ProfileScreen: Error refreshing plan details: $e');
+    }
+  }
+
   Future<void> _loadPlanDetails() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     setState(() {
@@ -42,6 +66,56 @@ class _ProfileScreenState extends State<ProfileScreen> {
       setState(() {
         _isLoadingPlan = false;
       });
+    }
+  }
+
+  Future<void> _refreshData() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+
+    try {
+      // Get fresh student data from unified API
+      final studentData = await authProvider.getFreshStudentData();
+
+      if (studentData != null) {
+        // Update plan details from the fresh data
+        if (studentData['plan'] != null) {
+          setState(() {
+            _planDetails = studentData['plan'];
+            _isLoadingPlan = false;
+          });
+        }
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('تم تحديث البيانات بنجاح'),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('فشل في تحديث البيانات'),
+              backgroundColor: Colors.red,
+              duration: Duration(seconds: 3),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      print('ProfileScreen: Error refreshing data: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('فشل في تحديث البيانات: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
     }
   }
 
@@ -131,334 +205,342 @@ class _ProfileScreenState extends State<ProfileScreen> {
         body: SafeArea(
           child: Directionality(
             textDirection: TextDirection.rtl,
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                children: [
-                  // Profile Header Card with Account Info
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(24),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF8F9FA),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: Colors.grey.withOpacity(0.2),
-                        width: 1,
+            child: RefreshIndicator(
+              onRefresh: _refreshData,
+              color: const Color(0xFF0A84FF),
+              backgroundColor: Colors.white,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  children: [
+                    // Profile Header Card with Account Info
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8F9FA),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: Colors.grey.withOpacity(0.2),
+                          width: 1,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.05),
+                            blurRadius: 20,
+                            offset: const Offset(0, 8),
+                          ),
+                        ],
                       ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
-                          blurRadius: 20,
-                          offset: const Offset(0, 8),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      children: [
-                        // Profile Avatar
-                        Container(
-                          width: 90,
-                          height: 90,
-                          decoration: BoxDecoration(
-                            color: Colors.transparent,
-                            borderRadius: BorderRadius.circular(45),
-                          ),
-                          child: Center(
-                            child: Container(
-                              width: 80,
-                              height: 80,
-                              decoration: BoxDecoration(
-                                color: const Color.fromARGB(255, 255, 255, 255),
-                                borderRadius: BorderRadius.circular(40),
-                                border: Border.all(
-                                  color:
-                                      const Color.fromARGB(255, 255, 255, 255)
-                                          .withOpacity(0.6),
-                                  width: 2,
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color:
-                                        const Color.fromARGB(255, 213, 226, 247)
-                                            .withOpacity(0.5),
-                                    blurRadius: 12,
-                                    offset: const Offset(0, 4),
-                                  ),
-                                ],
-                              ),
-                              child: ShaderMask(
-                                shaderCallback: (Rect bounds) {
-                                  return const LinearGradient(
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
-                                    colors: [
-                                      Color.fromARGB(255, 10, 132, 235),
-                                      Color.fromARGB(255, 10, 132, 235),
-                                    ],
-                                  ).createShader(bounds);
-                                },
-                                blendMode: BlendMode.srcIn,
-                                child: const Icon(
-                                  Icons.person,
-                                  color: Colors.white,
-                                  size: 36,
-                                ),
-                              ),
+                      child: Column(
+                        children: [
+                          // Profile Avatar
+                          Container(
+                            width: 90,
+                            height: 90,
+                            decoration: BoxDecoration(
+                              color: Colors.transparent,
+                              borderRadius: BorderRadius.circular(45),
                             ),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        // Student Name
-                        Text(
-                          student['name'],
-                          style: const TextStyle(
-                            color: Color(0xFF1A1A1A),
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        // Status Badge
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: student['active']
-                                ? Colors.green.withOpacity(0.2)
-                                : Colors.red.withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(
-                              color:
-                                  student['active'] ? Colors.green : Colors.red,
-                              width: 1,
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Container(
-                                width: 8,
-                                height: 8,
+                            child: Center(
+                              child: Container(
+                                width: 80,
+                                height: 80,
                                 decoration: BoxDecoration(
-                                  color: student['active']
-                                      ? Colors.green
-                                      : Colors.red,
-                                  shape: BoxShape.circle,
+                                  color:
+                                      const Color.fromARGB(255, 255, 255, 255),
+                                  borderRadius: BorderRadius.circular(40),
+                                  border: Border.all(
+                                    color:
+                                        const Color.fromARGB(255, 255, 255, 255)
+                                            .withOpacity(0.6),
+                                    width: 2,
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: const Color.fromARGB(
+                                              255, 213, 226, 247)
+                                          .withOpacity(0.5),
+                                      blurRadius: 12,
+                                      offset: const Offset(0, 4),
+                                    ),
+                                  ],
+                                ),
+                                child: ShaderMask(
+                                  shaderCallback: (Rect bounds) {
+                                    return const LinearGradient(
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                      colors: [
+                                        Color.fromARGB(255, 10, 132, 235),
+                                        Color.fromARGB(255, 10, 132, 235),
+                                      ],
+                                    ).createShader(bounds);
+                                  },
+                                  blendMode: BlendMode.srcIn,
+                                  child: const Icon(
+                                    Icons.person,
+                                    color: Colors.white,
+                                    size: 36,
+                                  ),
                                 ),
                               ),
-                              const SizedBox(width: 6),
-                              Text(
-                                student['active'] ? 'نشط' : 'غير نشط',
-                                style: TextStyle(
-                                  color: student['active']
-                                      ? Colors.green
-                                      : Colors.red,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 20),
-                        // Account Information Section
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.5),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: Colors.grey.withOpacity(0.3),
-                              width: 1,
                             ),
                           ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'معلومات الحساب',
-                                style: TextStyle(
-                                  color: Color(0xFF1A1A1A),
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const SizedBox(height: 12),
-                              ProfileInfoRow(
-                                label: '',
-                                value: student['name'],
-                                icon: Icons.person_outline,
-                              ),
-                              const SizedBox(height: 12),
-                              ProfileInfoRow(
-                                label: '',
-                                value: student['phone'],
-                                icon: Icons.phone_outlined,
-                              ),
-                              const SizedBox(height: 12),
-                              ProfileInfoRow(
-                                label: '',
-                                value: student['email'],
-                                icon: Icons.email_outlined,
-                              ),
-                              const SizedBox(height: 12),
-                              ProfileInfoRow(
-                                label: '',
-                                value: expiryDate != null
-                                    ? '${expiryDate.year}-${expiryDate.month.toString().padLeft(2, '0')}-${expiryDate.day.toString().padLeft(2, '0')}'
-                                    : 'غير محدد',
-                                icon: Icons.calendar_today_outlined,
-                                valueColor: const Color(0xFFB0B0B0),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  // Countdown Timer
-                  if (expiryDate != null)
-                    CountdownTimer(
-                      expiryDate: expiryDate,
-                      onExpired: () {
-                        // Handle expiry if needed
-                      },
-                    ),
-                  const SizedBox(height: 20),
-                  // Subscription plan card
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF8F9FA),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: Colors.grey.withOpacity(0.2),
-                        width: 1,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.03),
-                          blurRadius: 12,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Icon at top-left
-                        const Align(
-                          alignment: Alignment.topLeft,
-                          child: Icon(
-                            Icons.workspace_premium,
-                            color: Color(0xFF0A84FF),
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        const Text(
-                          'الخطة الحالية',
-                          style: TextStyle(
-                            color: Color(0xFF1A1A1A),
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        if (_isLoadingPlan)
-                          const Center(
-                            child: CircularProgressIndicator(
-                              color: Color(0xFF0A84FF),
-                            ),
-                          )
-                        else if (_planDetails != null) ...[
+                          const SizedBox(height: 16),
+                          // Student Name
                           Text(
-                            _planDetails!['title'] ?? 'خطة غير محددة',
+                            student['name'],
                             style: const TextStyle(
                               color: Color(0xFF1A1A1A),
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
                             ),
                           ),
-                          const SizedBox(height: 4),
-                          Text(
-                            '${_planDetails!['price'] ?? 0} جنيه / ${_planDetails!['durationValue'] ?? 1} ${_planDetails!['durationType'] == 'month' ? 'شهر' : 'سنة'}',
-                            style: const TextStyle(
-                              color: Color(0xFF6B7280),
-                              fontSize: 14,
-                            ),
-                          ),
-                          if (_planDetails!['description'] != null) ...[
-                            const SizedBox(height: 8),
-                            Text(
-                              _planDetails!['description'],
-                              style: const TextStyle(
-                                color: Color(0xFF6B7280),
-                                fontSize: 12,
+                          const SizedBox(height: 8),
+                          // Status Badge
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: student['active']
+                                  ? Colors.green.withOpacity(0.2)
+                                  : Colors.red.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: student['active']
+                                    ? Colors.green
+                                    : Colors.red,
+                                width: 1,
                               ),
                             ),
-                          ],
-                        ] else ...[
-                          Text(
-                            'خطة غير محددة',
-                            style: const TextStyle(
-                              color: Color(0xFF1A1A1A),
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Container(
+                                  width: 8,
+                                  height: 8,
+                                  decoration: BoxDecoration(
+                                    color: student['active']
+                                        ? Colors.green
+                                        : Colors.red,
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  student['active'] ? 'نشط' : 'غير نشط',
+                                  style: TextStyle(
+                                    color: student['active']
+                                        ? Colors.green
+                                        : Colors.red,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'لا توجد خطة نشطة',
-                            style: const TextStyle(
-                              color: Color(0xFF6B7280),
-                              fontSize: 14,
+                          const SizedBox(height: 20),
+                          // Account Information Section
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.5),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: Colors.grey.withOpacity(0.3),
+                                width: 1,
+                              ),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'معلومات الحساب',
+                                  style: TextStyle(
+                                    color: Color(0xFF1A1A1A),
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                ProfileInfoRow(
+                                  label: '',
+                                  value: student['name'],
+                                  icon: Icons.person_outline,
+                                ),
+                                const SizedBox(height: 12),
+                                ProfileInfoRow(
+                                  label: '',
+                                  value: student['phone'],
+                                  icon: Icons.phone_outlined,
+                                ),
+                                const SizedBox(height: 12),
+                                ProfileInfoRow(
+                                  label: '',
+                                  value: student['email'],
+                                  icon: Icons.email_outlined,
+                                ),
+                                const SizedBox(height: 12),
+                                ProfileInfoRow(
+                                  label: '',
+                                  value: expiryDate != null
+                                      ? '${expiryDate.year}-${expiryDate.month.toString().padLeft(2, '0')}-${expiryDate.day.toString().padLeft(2, '0')}'
+                                      : 'غير محدد',
+                                  icon: Icons.calendar_today_outlined,
+                                  valueColor: const Color(0xFFB0B0B0),
+                                ),
+                              ],
                             ),
                           ),
                         ],
-                        const SizedBox(height: 16),
-                        // Transparent button with blue outline and gradient text at bottom-left
-                        Align(
-                          alignment: Alignment.bottomLeft,
-                          child: Material(
-                            color: Colors.transparent,
-                            child: InkWell(
-                              borderRadius: BorderRadius.circular(12),
-                              onTap: () {
-                                _showUpgradeConfirmation(context);
-                              },
-                              child: Container(
-                                height: 42,
-                                padding:
-                                    const EdgeInsets.symmetric(horizontal: 16),
-                                decoration: BoxDecoration(
-                                  color: Colors.transparent,
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(
-                                      color: const Color(0xFF0A84FF),
-                                      width: 1.5),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    // Countdown Timer
+                    if (expiryDate != null)
+                      CountdownTimer(
+                        expiryDate: expiryDate,
+                        onExpired: () {
+                          // Handle expiry if needed
+                        },
+                      ),
+                    const SizedBox(height: 20),
+                    // Subscription plan card
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8F9FA),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: Colors.grey.withOpacity(0.2),
+                          width: 1,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.03),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Icon at top-left
+                          const Align(
+                            alignment: Alignment.topLeft,
+                            child: Icon(
+                              Icons.workspace_premium,
+                              color: Color(0xFF0A84FF),
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          const Text(
+                            'الخطة الحالية',
+                            style: TextStyle(
+                              color: Color(0xFF1A1A1A),
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          if (_isLoadingPlan)
+                            const Center(
+                              child: CircularProgressIndicator(
+                                color: Color(0xFF0A84FF),
+                              ),
+                            )
+                          else if (_planDetails != null) ...[
+                            Text(
+                              _planDetails!['title'] ?? 'خطة غير محددة',
+                              style: const TextStyle(
+                                color: Color(0xFF1A1A1A),
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '${_planDetails!['price'] ?? 0} جنيه / ${_planDetails!['durationValue'] ?? 1} ${_planDetails!['durationType'] == 'month' ? 'شهر' : 'سنة'}',
+                              style: const TextStyle(
+                                color: Color(0xFF6B7280),
+                                fontSize: 14,
+                              ),
+                            ),
+                            if (_planDetails!['description'] != null) ...[
+                              const SizedBox(height: 8),
+                              Text(
+                                _planDetails!['description'],
+                                style: const TextStyle(
+                                  color: Color(0xFF6B7280),
+                                  fontSize: 12,
                                 ),
-                                child: Center(
-                                  child: ShaderMask(
-                                    shaderCallback: (bounds) =>
-                                        const LinearGradient(
-                                      colors: [
-                                        Color(0xFF0A84FF),
-                                        Color(0xFF007AFF)
-                                      ],
-                                      begin: Alignment.topLeft,
-                                      end: Alignment.bottomRight,
-                                    ).createShader(bounds),
-                                    blendMode: BlendMode.srcIn,
-                                    child: const Text(
-                                      'ترقيه الخطه',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w600,
+                              ),
+                            ],
+                          ] else ...[
+                            Text(
+                              'خطة غير محددة',
+                              style: const TextStyle(
+                                color: Color(0xFF1A1A1A),
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'لا توجد خطة نشطة',
+                              style: const TextStyle(
+                                color: Color(0xFF6B7280),
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
+                          const SizedBox(height: 16),
+                          // Transparent button with blue outline and gradient text at bottom-left
+                          Align(
+                            alignment: Alignment.bottomLeft,
+                            child: Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(12),
+                                onTap: () {
+                                  _showUpgradeConfirmation(context);
+                                },
+                                child: Container(
+                                  height: 42,
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 16),
+                                  decoration: BoxDecoration(
+                                    color: Colors.transparent,
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                        color: const Color(0xFF0A84FF),
+                                        width: 1.5),
+                                  ),
+                                  child: Center(
+                                    child: ShaderMask(
+                                      shaderCallback: (bounds) =>
+                                          const LinearGradient(
+                                        colors: [
+                                          Color(0xFF0A84FF),
+                                          Color(0xFF007AFF)
+                                        ],
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                      ).createShader(bounds),
+                                      blendMode: BlendMode.srcIn,
+                                      child: const Text(
+                                        'ترقيه الخطه',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w600,
+                                        ),
                                       ),
                                     ),
                                   ),
@@ -466,86 +548,86 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               ),
                             ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 16),
-                  // Edit Profile Button
-                  Container(
-                    width: double.infinity,
-                    height: 50,
-                    decoration: BoxDecoration(
-                      color: Colors.transparent,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                          color: const Color(0xFF0A84FF), width: 1.5),
-                    ),
-                    child: Material(
-                      color: Colors.transparent,
-                      child: InkWell(
+                    const SizedBox(height: 16),
+                    // Edit Profile Button
+                    Container(
+                      width: double.infinity,
+                      height: 50,
+                      decoration: BoxDecoration(
+                        color: Colors.transparent,
                         borderRadius: BorderRadius.circular(12),
-                        onTap: () => _showEditProfileDialog(context, student),
-                        child: Center(
-                          child: ShaderMask(
-                            shaderCallback: (bounds) => const LinearGradient(
-                              colors: [Color(0xFF0A84FF), Color(0xFF007AFF)],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ).createShader(bounds),
-                            blendMode: BlendMode.srcIn,
-                            child: const Text(
-                              'تعديل الملف الشخصي',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
+                        border: Border.all(
+                            color: const Color(0xFF0A84FF), width: 1.5),
+                      ),
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(12),
+                          onTap: () => _showEditProfileDialog(context, student),
+                          child: Center(
+                            child: ShaderMask(
+                              shaderCallback: (bounds) => const LinearGradient(
+                                colors: [Color(0xFF0A84FF), Color(0xFF007AFF)],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ).createShader(bounds),
+                              blendMode: BlendMode.srcIn,
+                              child: const Text(
+                                'تعديل الملف الشخصي',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
                             ),
                           ),
                         ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 16),
-                  // Logout Button
-                  Container(
-                    width: double.infinity,
-                    height: 50,
-                    decoration: BoxDecoration(
-                      color: Colors.transparent,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                          color: const Color(0xFFE53E3E), width: 1.5),
-                    ),
-                    child: Material(
-                      color: Colors.transparent,
-                      child: InkWell(
+                    const SizedBox(height: 16),
+                    // Logout Button
+                    Container(
+                      width: double.infinity,
+                      height: 50,
+                      decoration: BoxDecoration(
+                        color: Colors.transparent,
                         borderRadius: BorderRadius.circular(12),
-                        onTap: () =>
-                            _showLogoutConfirmation(context, authProvider),
-                        child: Center(
-                          child: ShaderMask(
-                            shaderCallback: (bounds) => const LinearGradient(
-                              colors: [Color(0xFFE53E3E), Color(0xFFC53030)],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ).createShader(bounds),
-                            blendMode: BlendMode.srcIn,
-                            child: const Text(
-                              'تسجيل خروج',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
+                        border: Border.all(
+                            color: const Color(0xFFE53E3E), width: 1.5),
+                      ),
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(12),
+                          onTap: () =>
+                              _showLogoutConfirmation(context, authProvider),
+                          child: Center(
+                            child: ShaderMask(
+                              shaderCallback: (bounds) => const LinearGradient(
+                                colors: [Color(0xFFE53E3E), Color(0xFFC53030)],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ).createShader(bounds),
+                              blendMode: BlendMode.srcIn,
+                              child: const Text(
+                                'تسجيل خروج',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
                             ),
                           ),
                         ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),

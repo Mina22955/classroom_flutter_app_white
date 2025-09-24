@@ -259,6 +259,122 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
+  // Refresh user data from server using unified API
+  Future<bool> refreshUserData() async {
+    if (_user == null || _token == null) {
+      print('AuthProvider: No user or token available for refresh');
+      return false;
+    }
+
+    try {
+      final rawUserId = _user!['id'] ?? _user!['_id'] ?? _user!['userId'];
+      if (rawUserId == null) {
+        print('AuthProvider: No user ID found for refresh');
+        return false;
+      }
+
+      print('AuthProvider: Refreshing user data for user: $rawUserId');
+
+      // Fetch updated user data from unified API
+      final studentData = await _apiService.getStudentData(
+        studentId: rawUserId.toString(),
+        accessToken: _token,
+      );
+
+      if (studentData != null) {
+        // Update local user data with the new structure
+        _user = {
+          'id': studentData['id'],
+          'name': studentData['name'],
+          'email': studentData['email'],
+          'phone': studentData['phone'],
+          'status': studentData['status'],
+          'expiresAt': studentData['expiresAt'],
+          'plan': studentData['plan']?['id'], // Store plan ID for compatibility
+          'createdAt': studentData['createdAt'],
+        };
+
+        // Save updated data to storage
+        await _saveLoginData();
+
+        // Clear plan details cache to force refresh
+        _cachedPlanDetails = null;
+        _hasFetchedPlanDetailsThisSession = false;
+
+        notifyListeners();
+        print('AuthProvider: User data refreshed successfully');
+        return true;
+      } else {
+        print('AuthProvider: Failed to get updated user data');
+        return false;
+      }
+    } catch (e) {
+      print('AuthProvider: Error refreshing user data: $e');
+      return false;
+    }
+  }
+
+  // Force refresh user data after plan upgrade
+  Future<void> refreshUserDataAfterUpgrade() async {
+    print('AuthProvider: Refreshing user data after plan upgrade...');
+    await getFreshStudentData();
+  }
+
+  // Get fresh student data (for home screen and profile screen)
+  Future<Map<String, dynamic>?> getFreshStudentData() async {
+    if (_user == null || _token == null) {
+      print('AuthProvider: No user or token available');
+      return null;
+    }
+
+    try {
+      final rawUserId = _user!['id'] ?? _user!['_id'] ?? _user!['userId'];
+      if (rawUserId == null) {
+        print('AuthProvider: No user ID found');
+        return null;
+      }
+
+      print('AuthProvider: Fetching fresh student data for user: $rawUserId');
+
+      // Fetch fresh data from unified API
+      final studentData = await _apiService.getStudentData(
+        studentId: rawUserId.toString(),
+        accessToken: _token,
+      );
+
+      if (studentData != null) {
+        // Update local user data
+        _user = {
+          'id': studentData['id'],
+          'name': studentData['name'],
+          'email': studentData['email'],
+          'phone': studentData['phone'],
+          'status': studentData['status'],
+          'expiresAt': studentData['expiresAt'],
+          'plan': studentData['plan']?['id'],
+          'createdAt': studentData['createdAt'],
+        };
+
+        // Save updated data to storage
+        await _saveLoginData();
+
+        // Clear cached plan details to force refresh
+        _cachedPlanDetails = null;
+        _hasFetchedPlanDetailsThisSession = false;
+
+        notifyListeners();
+        print('AuthProvider: Fresh student data fetched successfully');
+        return studentData;
+      } else {
+        print('AuthProvider: Failed to get fresh student data');
+        return null;
+      }
+    } catch (e) {
+      print('AuthProvider: Error fetching fresh student data: $e');
+      return null;
+    }
+  }
+
   // Get subscription status from user data (fallback)
   bool get isSubscribed {
     if (_user == null) {
@@ -775,18 +891,9 @@ class AuthProvider extends ChangeNotifier {
         print(
             'AuthProvider: Device Token: ${deviceToken?.substring(0, 10) ?? 'None'}...');
 
-        // Validate the session to ensure it's still valid
-        final isValidSession = await validateSession();
-        if (!isValidSession) {
-          print('AuthProvider: Stored session is invalid, clearing data');
-          await _clearStoredLoginData();
-          _isAuthenticated = false;
-          _token = null;
-          _user = null;
-          _deviceToken = null;
-        } else {
-          print('AuthProvider: Stored session is valid');
-        }
+        // Skip session validation to prevent blocking the UI
+        // The session will be validated when needed
+        print('AuthProvider: Stored session loaded successfully');
 
         notifyListeners();
       } else {

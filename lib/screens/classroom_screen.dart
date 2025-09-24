@@ -1524,8 +1524,21 @@ class _ClassroomScreenState extends State<ClassroomScreen> {
           return;
         }
 
+        // Get student ID from AuthProvider
+        final studentId = authProvider.user?['id']?.toString() ??
+            authProvider.user?['_id']?.toString() ??
+            '';
+
+        if (studentId.isEmpty) {
+          // Close loading dialog
+          Navigator.of(context).pop();
+          _showErrorDialog('خطأ في المصادقة', 'معرف الطالب غير متوفر.');
+          return;
+        }
+
         // Submit the solution
         final submissionResult = await _apiService.submitTaskSolution(
+          studentId: studentId,
           classId: widget.classId,
           taskId: taskId,
           filePath: filePath,

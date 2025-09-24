@@ -43,6 +43,7 @@ class _MyAppState extends State<MyApp> {
       print('Main: Authentication initialization completed');
     } catch (e) {
       print('Main: Error during authentication initialization: $e');
+      // Don't let initialization errors crash the app
     }
   }
 

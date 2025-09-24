@@ -34,11 +34,19 @@ class _HomeScreenState extends State<HomeScreen> {
     _classIdController.addListener(() {
       if (mounted) setState(() {});
     });
-    // Load joined classes and subscription data asynchronously without blocking the UI
-    Future.microtask(() {
+    // Load data with a small delay to ensure UI is rendered first
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadData();
+    });
+  }
+
+  Future<void> _loadData() async {
+    // Load data with a small delay to prevent blocking the UI
+    await Future.delayed(const Duration(milliseconds: 100));
+    if (mounted) {
       _loadJoinedClasses();
       _loadSubscriptionData();
-    });
+    }
   }
 
   @override
@@ -80,7 +88,16 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       final authProvider = context.read<AuthProvider>();
       print('HomeScreen: About to call getStudentClasses()');
-      final classes = await authProvider.getStudentClasses();
+      
+      // Add timeout to prevent hanging
+      final classes = await authProvider.getStudentClasses().timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {
+          print('HomeScreen: getStudentClasses timeout');
+          return <Map<String, dynamic>>[];
+        },
+      );
+      
       print('HomeScreen: Fetched classes from API: $classes');
       print('HomeScreen: Classes count: ${classes.length}');
       if (mounted) {
@@ -111,11 +128,29 @@ class _HomeScreenState extends State<HomeScreen> {
 
     try {
       final authProvider = context.read<AuthProvider>();
-      print('HomeScreen: About to call getUserSubscriptionStatus()');
-      final subscriptionData = await authProvider.getUserSubscriptionStatus();
-      print(
-          'HomeScreen: Fetched subscription data from API: $subscriptionData');
-      if (mounted) {
+      print('HomeScreen: About to call getFreshStudentData()');
+      
+      // Add timeout to prevent hanging
+      final studentData = await authProvider.getFreshStudentData().timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {
+          print('HomeScreen: getFreshStudentData timeout');
+          return null;
+        },
+      );
+      
+      print('HomeScreen: Fetched student data from API: $studentData');
+
+      if (mounted && studentData != null) {
+        // Extract subscription data from the unified response
+        final subscriptionData = {
+          'isActive': studentData['status'] == 'active',
+          'formattedDate': _formatDate(studentData['expiresAt']),
+          'plan': studentData['plan']?['title'] ?? '',
+          'status': studentData['status'],
+          'expiresAt': studentData['expiresAt'],
+        };
+
         setState(() {
           _subscriptionData = subscriptionData;
           _isLoadingSubscription = false;
@@ -124,6 +159,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
         // Check subscription status after loading data
         _checkSubscriptionStatus();
+      } else {
+        setState(() {
+          _isLoadingSubscription = false;
+        });
       }
     } catch (e) {
       print('HomeScreen: Error loading subscription data: $e');
@@ -131,6 +170,55 @@ class _HomeScreenState extends State<HomeScreen> {
         setState(() {
           _isLoadingSubscription = false;
         });
+      }
+    }
+  }
+
+  String _formatDate(dynamic expiresAt) {
+    if (expiresAt == null) return 'غير محدد';
+
+    try {
+      DateTime date;
+      if (expiresAt is String) {
+        date = DateTime.parse(expiresAt);
+      } else if (expiresAt is int) {
+        date = DateTime.fromMillisecondsSinceEpoch(expiresAt * 1000);
+      } else {
+        date = DateTime.fromMillisecondsSinceEpoch(expiresAt);
+      }
+      return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+    } catch (e) {
+      return 'غير محدد';
+    }
+  }
+
+  Future<void> _refreshData() async {
+    try {
+      // Refresh both classes and subscription data
+      await Future.wait([
+        _loadJoinedClasses(),
+        _loadSubscriptionData(),
+      ]);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('تم تحديث البيانات بنجاح'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      print('HomeScreen: Error refreshing data: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('فشل في تحديث البيانات: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
       }
     }
   }
@@ -301,6 +389,31 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (context, authProvider, child) {
         final user = authProvider.user;
 
+        // Show loading screen if user data is not available yet
+        if (user == null) {
+          return const Scaffold(
+            backgroundColor: Colors.white,
+            body: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  CircularProgressIndicator(
+                    color: Color(0xFF0A84FF),
+                  ),
+                  SizedBox(height: 16),
+                  Text(
+                    'جاري تحميل البيانات...',
+                    style: TextStyle(
+                      color: Colors.black,
+                      fontSize: 16,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+
         return AnnotatedRegion<SystemUiOverlayStyle>(
           value: const SystemUiOverlayStyle(
             statusBarColor: Colors.transparent,
@@ -326,557 +439,615 @@ class _HomeScreenState extends State<HomeScreen> {
               children: [
                 const GradientDecoratedBackground(child: SizedBox.expand()),
                 SafeArea(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 24, 16, 16),
-                    child: Directionality(
-                      textDirection: TextDirection.rtl,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          // Student card with logout
-                          _isLoadingSubscription
-                              ? Container(
-                                  height: 130,
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(16),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withOpacity(0.10),
-                                        blurRadius: 18,
-                                        spreadRadius: 1,
-                                        offset: const Offset(0, 6),
-                                      ),
-                                    ],
-                                  ),
-                                  child: const Center(
-                                    child: CircularProgressIndicator(
-                                      color: Color(0xFF0A84FF),
-                                    ),
-                                  ),
-                                )
-                              : _buildStudentCardWithLogout(
-                                  studentName: user?['name'] ?? 'الطالب',
-                                  isSubscribed:
-                                      _getSubscriptionStatus(authProvider),
-                                  renewalDate: _getRenewalDate(authProvider),
-                                  onProfileTap: () {
-                                    // Immediate navigation with no delay
-                                    context.push('/profile');
-                                  },
-                                  onLogoutTap: () => _showLogoutConfirmation(
-                                      context, authProvider),
-                                ),
-                          const SizedBox(height: 24),
-                          // Collapsible Join control
-                          AnimatedSwitcher(
-                            duration: const Duration(milliseconds: 280),
-                            switchInCurve: Curves.easeOutCubic,
-                            switchOutCurve: Curves.easeInCubic,
-                            transitionBuilder: (child, anim) {
-                              final slide = Tween<Offset>(
-                                begin: const Offset(0, 0.15),
-                                end: Offset.zero,
-                              ).animate(anim);
-                              return FadeTransition(
-                                opacity: anim,
-                                child: SlideTransition(
-                                    position: slide, child: child),
-                              );
-                            },
-                            child: !_joinExpanded
-                                ? Container(
-                                    key: const ValueKey('join_collapsed'),
-                                    decoration: BoxDecoration(
-                                      gradient: const LinearGradient(
-                                        colors: [
-                                          Color(0xFF0A84FF),
-                                          Color(0xFF007AFF)
-                                        ],
-                                        begin: Alignment.topLeft,
-                                        end: Alignment.bottomRight,
-                                      ),
-                                      borderRadius: BorderRadius.circular(16),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: const Color(0xFF0A84FF)
-                                              .withOpacity(0.25),
-                                          blurRadius: 12,
-                                          offset: const Offset(0, 6),
-                                        ),
-                                      ],
-                                    ),
-                                    child: Material(
-                                      color: Colors.transparent,
-                                      child: InkWell(
-                                        onTap: () => setState(
-                                            () => _joinExpanded = true),
-                                        borderRadius: BorderRadius.circular(16),
-                                        child: Container(
-                                          height: 64,
-                                          padding: const EdgeInsets.symmetric(
-                                              horizontal: 20),
-                                          child: Row(
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.center,
-                                            children: [
-                                              Container(
-                                                width: 36,
-                                                height: 36,
-                                                decoration: BoxDecoration(
-                                                  color: Colors.white
-                                                      .withOpacity(0.2),
-                                                  borderRadius:
-                                                      BorderRadius.circular(10),
-                                                ),
-                                                child: const Icon(
-                                                  Icons.group_add_rounded,
-                                                  color: Colors.white,
-                                                  size: 20,
-                                                ),
-                                              ),
-                                              const SizedBox(width: 12),
-                                              const Text(
-                                                'انضمام إلى كلاس',
-                                                style: TextStyle(
-                                                  color: Colors.white,
-                                                  fontSize: 16,
-                                                  fontWeight: FontWeight.w700,
-                                                  letterSpacing: 0.2,
-                                                ),
-                                              ),
-                                              const SizedBox(width: 8),
-                                              const Icon(
-                                                Icons.arrow_forward_ios_rounded,
-                                                color: Colors.white,
-                                                size: 16,
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  )
-                                : Container(
-                                    key: const ValueKey('join_expanded'),
-                                    decoration: BoxDecoration(
-                                      gradient: const LinearGradient(
-                                        colors: [
-                                          Color(0xFFF0F7FF),
-                                          Colors.white
-                                        ],
-                                        begin: Alignment.topLeft,
-                                        end: Alignment.bottomRight,
-                                      ),
-                                      borderRadius: BorderRadius.circular(16),
-                                      border: Border.all(
-                                        color: Colors.black.withOpacity(0.05),
-                                        width: 1,
-                                      ),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: Colors.black.withOpacity(0.08),
-                                          blurRadius: 20,
-                                          offset: const Offset(0, 8),
-                                        ),
-                                      ],
-                                    ),
-                                    child: Padding(
-                                      padding: const EdgeInsets.all(14),
-                                      child: Column(
-                                        mainAxisSize: MainAxisSize.min,
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.stretch,
-                                        children: [
-                                          Row(
-                                            children: [
-                                              Container(
-                                                width: 34,
-                                                height: 34,
-                                                decoration: BoxDecoration(
-                                                  gradient:
-                                                      const LinearGradient(
-                                                    colors: [
-                                                      Color(0xFF0A84FF),
-                                                      Color(0xFF007AFF)
-                                                    ],
-                                                    begin: Alignment.topLeft,
-                                                    end: Alignment.bottomRight,
-                                                  ),
-                                                  borderRadius:
-                                                      BorderRadius.circular(10),
-                                                  boxShadow: [
-                                                    BoxShadow(
-                                                      color: const Color(
-                                                              0xFF0A84FF)
-                                                          .withOpacity(0.25),
-                                                      blurRadius: 10,
-                                                      offset:
-                                                          const Offset(0, 4),
-                                                    ),
-                                                  ],
-                                                ),
-                                                child: const Icon(
-                                                    Icons.group_add_rounded,
-                                                    color: Colors.white,
-                                                    size: 20),
-                                              ),
-                                              const SizedBox(width: 10),
-                                              const Text(
-                                                'انضمام إلى كلاس',
-                                                style: TextStyle(
-                                                  fontSize: 16,
-                                                  fontWeight: FontWeight.w800,
-                                                  color: Colors.black,
-                                                ),
-                                              ),
-                                              const Spacer(),
-                                              IconButton(
-                                                onPressed: () => setState(() =>
-                                                    _joinExpanded = false),
-                                                icon: const Icon(
-                                                    Icons.close_rounded,
-                                                    color: Color(0xFF6B7280)),
-                                                tooltip: 'إغلاق',
-                                              ),
-                                            ],
-                                          ),
-                                          const SizedBox(height: 12),
-                                          Row(
-                                            children: [
-                                              Expanded(
-                                                child: SizedBox(
-                                                  height: 54,
-                                                  child: TextField(
-                                                    controller:
-                                                        _classIdController,
-                                                    textAlignVertical:
-                                                        TextAlignVertical
-                                                            .center,
-                                                    style: const TextStyle(
-                                                      fontSize:
-                                                          13, // Smaller font
-                                                    ),
-                                                    decoration: InputDecoration(
-                                                      filled: true,
-                                                      fillColor: const Color(
-                                                          0xFFF8FAFF),
-                                                      hintText:
-                                                          'أدخل رقم الكلاس',
-                                                      hintStyle:
-                                                          const TextStyle(
-                                                        color:
-                                                            Color(0xFF9CA3AF),
-                                                        fontSize:
-                                                            13, // Smaller hint font
-                                                      ),
-                                                      contentPadding:
-                                                          const EdgeInsets
-                                                              .symmetric(
-                                                              horizontal: 14,
-                                                              vertical: 16),
-                                                      border:
-                                                          OutlineInputBorder(
-                                                        borderRadius:
-                                                            BorderRadius
-                                                                .circular(14),
-                                                        borderSide: BorderSide(
-                                                          color: Colors.black
-                                                              .withOpacity(
-                                                                  0.06),
-                                                          width: 1,
-                                                        ),
-                                                      ),
-                                                      enabledBorder:
-                                                          OutlineInputBorder(
-                                                        borderRadius:
-                                                            BorderRadius
-                                                                .circular(14),
-                                                        borderSide: BorderSide(
-                                                          color: Colors.black
-                                                              .withOpacity(
-                                                                  0.06),
-                                                          width: 1,
-                                                        ),
-                                                      ),
-                                                      focusedBorder:
-                                                          OutlineInputBorder(
-                                                        borderRadius:
-                                                            BorderRadius
-                                                                .circular(14),
-                                                        borderSide:
-                                                            const BorderSide(
-                                                          color:
-                                                              Color(0xFF0A84FF),
-                                                          width: 1.5,
-                                                        ),
-                                                      ),
-                                                      prefixIcon: const Icon(
-                                                          Icons.class_,
-                                                          color: Color(
-                                                              0xFF0A84FF)),
-                                                      suffixIcon: Container(
-                                                        width:
-                                                            40, // Further reduced width
-                                                        constraints:
-                                                            const BoxConstraints(
-                                                          maxWidth: 40,
-                                                        ),
-                                                        child: Row(
-                                                          mainAxisAlignment:
-                                                              MainAxisAlignment
-                                                                  .end,
-                                                          mainAxisSize:
-                                                              MainAxisSize.min,
-                                                          children: [
-                                                            if (_classIdController
-                                                                .text
-                                                                .isNotEmpty)
-                                                              IconButton(
-                                                                tooltip: 'مسح',
-                                                                icon: const Icon(
-                                                                    Icons
-                                                                        .clear_rounded,
-                                                                    color: Color(
-                                                                        0xFF9CA3AF),
-                                                                    size: 16),
-                                                                onPressed: () {
-                                                                  _classIdController
-                                                                      .clear();
-                                                                  setState(
-                                                                      () {});
-                                                                },
-                                                              ),
-                                                          ],
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  ),
-                                                ),
-                                              ),
-                                              const SizedBox(width: 8),
-                                              // Icon button instead of text button
-                                              Container(
-                                                height: 54,
-                                                width: 54,
-                                                decoration: BoxDecoration(
-                                                  gradient: _classIdController
-                                                          .text
-                                                          .trim()
-                                                          .isEmpty
-                                                      ? LinearGradient(
-                                                          colors: [
-                                                            Colors.grey[300]!,
-                                                            Colors.grey[400]!
-                                                          ],
-                                                          begin:
-                                                              Alignment.topLeft,
-                                                          end: Alignment
-                                                              .bottomRight,
-                                                        )
-                                                      : const LinearGradient(
-                                                          colors: [
-                                                            Color(0xFF0A84FF),
-                                                            Color(0xFF007AFF)
-                                                          ],
-                                                          begin:
-                                                              Alignment.topLeft,
-                                                          end: Alignment
-                                                              .bottomRight,
-                                                        ),
-                                                  borderRadius:
-                                                      BorderRadius.circular(14),
-                                                  boxShadow: _classIdController
-                                                          .text
-                                                          .trim()
-                                                          .isEmpty
-                                                      ? null
-                                                      : [
-                                                          BoxShadow(
-                                                            color: const Color(
-                                                                    0xFF0A84FF)
-                                                                .withOpacity(
-                                                                    0.25),
-                                                            blurRadius: 8,
-                                                            offset:
-                                                                const Offset(
-                                                                    0, 4),
-                                                          ),
-                                                        ],
-                                                ),
-                                                child: Material(
-                                                  color: Colors.transparent,
-                                                  child: InkWell(
-                                                    onTap: _classIdController
-                                                            .text
-                                                            .trim()
-                                                            .isEmpty
-                                                        ? null
-                                                        : _isJoiningClass
-                                                            ? null
-                                                            : _handleJoinClass,
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                            14),
-                                                    child: Center(
-                                                      child: _isJoiningClass
-                                                          ? const SizedBox(
-                                                              width: 20,
-                                                              height: 20,
-                                                              child:
-                                                                  CircularProgressIndicator(
-                                                                color: Colors
-                                                                    .white,
-                                                                strokeWidth: 2,
-                                                              ),
-                                                            )
-                                                          : const Icon(
-                                                              Icons.add_rounded,
-                                                              color:
-                                                                  Colors.white,
-                                                              size: 24,
-                                                            ),
-                                                    ),
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                          const SizedBox(height: 10),
-                                          Row(
-                                            children: const [
-                                              Icon(Icons.info_outline_rounded,
-                                                  size: 16,
-                                                  color: Color(0xFF6B7280)),
-                                              SizedBox(width: 6),
-                                              Expanded(
-                                                child: Text(
-                                                  'أدخل رقم الكلاس للانضمام إليه',
-                                                  style: TextStyle(
-                                                    color: Color(0xFF6B7280),
-                                                    fontSize: 12,
-                                                    fontWeight: FontWeight.w500,
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                          ),
-                          const SizedBox(height: 24),
-                          Row(
+                  child: RefreshIndicator(
+                    onRefresh: _refreshData,
+                    color: const Color(0xFF0A84FF),
+                    backgroundColor: Colors.white,
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 24, 16, 16),
+                      child: Directionality(
+                        textDirection: TextDirection.rtl,
+                        child: SingleChildScrollView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              const Text(
-                                'الكلاسات المنضَمّة',
-                                style: TextStyle(
-                                  color: Colors.black,
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const Spacer(),
-                              IconButton(
-                                onPressed: () {
-                                  _loadJoinedClasses();
-                                  _loadSubscriptionData();
-                                },
-                                icon: const Icon(Icons.refresh,
-                                    color: Color(0xFF0A84FF)),
-                                tooltip: 'تحديث القائمة',
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-                          Expanded(
-                            child: _isLoadingClasses
-                                ? const Center(
-                                    child: CircularProgressIndicator(
-                                      color: Color(0xFF0A84FF),
-                                    ),
-                                  )
-                                : RefreshIndicator(
-                                    onRefresh: () async {
-                                      await _loadJoinedClasses();
-                                      await _loadSubscriptionData();
-                                    },
-                                    color: const Color(0xFF0A84FF),
-                                    child: ListView.separated(
-                                      itemCount: _joinedClasses.length,
-                                      separatorBuilder: (_, __) =>
-                                          const SizedBox(height: 12),
-                                      itemBuilder: (context, index) {
-                                        final klass = _joinedClasses[index];
-                                        print(
-                                            'HomeScreen: Building ClassCard for ${klass['name']} with status: ${klass['status']}');
-                                        return ClassCard(
-                                          className:
-                                              klass['name']?.toString() ??
-                                                  'كلاس',
-                                          status: klass['status']?.toString() ??
-                                              'active',
-                                          onTap: () {
-                                            // Immediate navigation with no delay
-                                            context.push(
-                                              '/classroom',
-                                              extra: {
-                                                'id': klass['id']?.toString() ??
-                                                    '',
-                                                'name':
-                                                    klass['name']?.toString() ??
-                                                        'كلاس',
-                                              },
-                                            );
-                                          },
-                                        );
+                              // Student card with logout
+                              _isLoadingSubscription
+                                  ? Container(
+                                      height: 130,
+                                      decoration: BoxDecoration(
+                                        color: Colors.white,
+                                        borderRadius: BorderRadius.circular(16),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color:
+                                                Colors.black.withOpacity(0.10),
+                                            blurRadius: 18,
+                                            spreadRadius: 1,
+                                            offset: const Offset(0, 6),
+                                          ),
+                                        ],
+                                      ),
+                                      child: const Center(
+                                        child: CircularProgressIndicator(
+                                          color: Color(0xFF0A84FF),
+                                        ),
+                                      ),
+                                    )
+                                  : _buildStudentCardWithLogout(
+                                      studentName: user['name'] ?? 'الطالب',
+                                      isSubscribed:
+                                          _getSubscriptionStatus(authProvider),
+                                      renewalDate:
+                                          _getRenewalDate(authProvider),
+                                      onProfileTap: () {
+                                        // Immediate navigation with no delay
+                                        context.push('/profile');
                                       },
+                                      onLogoutTap: () =>
+                                          _showLogoutConfirmation(
+                                              context, authProvider),
                                     ),
-                                  ),
-                          ),
-                          // Empty state for joined classes
-                          if (!_isLoadingClasses && _joinedClasses.isEmpty)
-                            Container(
-                              margin: const EdgeInsets.symmetric(vertical: 40),
-                              padding: const EdgeInsets.all(24),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.6),
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(
-                                  color: Colors.black.withOpacity(0.08),
-                                  width: 1,
-                                ),
+                              const SizedBox(height: 24),
+                              // Collapsible Join control
+                              AnimatedSwitcher(
+                                duration: const Duration(milliseconds: 280),
+                                switchInCurve: Curves.easeOutCubic,
+                                switchOutCurve: Curves.easeInCubic,
+                                transitionBuilder: (child, anim) {
+                                  final slide = Tween<Offset>(
+                                    begin: const Offset(0, 0.15),
+                                    end: Offset.zero,
+                                  ).animate(anim);
+                                  return FadeTransition(
+                                    opacity: anim,
+                                    child: SlideTransition(
+                                        position: slide, child: child),
+                                  );
+                                },
+                                child: !_joinExpanded
+                                    ? Container(
+                                        key: const ValueKey('join_collapsed'),
+                                        decoration: BoxDecoration(
+                                          gradient: const LinearGradient(
+                                            colors: [
+                                              Color(0xFF0A84FF),
+                                              Color(0xFF007AFF)
+                                            ],
+                                            begin: Alignment.topLeft,
+                                            end: Alignment.bottomRight,
+                                          ),
+                                          borderRadius:
+                                              BorderRadius.circular(16),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: const Color(0xFF0A84FF)
+                                                  .withOpacity(0.25),
+                                              blurRadius: 12,
+                                              offset: const Offset(0, 6),
+                                            ),
+                                          ],
+                                        ),
+                                        child: Material(
+                                          color: Colors.transparent,
+                                          child: InkWell(
+                                            onTap: () => setState(
+                                                () => _joinExpanded = true),
+                                            borderRadius:
+                                                BorderRadius.circular(16),
+                                            child: Container(
+                                              height: 64,
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                      horizontal: 20),
+                                              child: Row(
+                                                mainAxisAlignment:
+                                                    MainAxisAlignment.center,
+                                                children: [
+                                                  Container(
+                                                    width: 36,
+                                                    height: 36,
+                                                    decoration: BoxDecoration(
+                                                      color: Colors.white
+                                                          .withOpacity(0.2),
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                              10),
+                                                    ),
+                                                    child: const Icon(
+                                                      Icons.group_add_rounded,
+                                                      color: Colors.white,
+                                                      size: 20,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 12),
+                                                  const Text(
+                                                    'انضمام إلى كلاس',
+                                                    style: TextStyle(
+                                                      color: Colors.white,
+                                                      fontSize: 16,
+                                                      fontWeight:
+                                                          FontWeight.w700,
+                                                      letterSpacing: 0.2,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 8),
+                                                  const Icon(
+                                                    Icons
+                                                        .arrow_forward_ios_rounded,
+                                                    color: Colors.white,
+                                                    size: 16,
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      )
+                                    : Container(
+                                        key: const ValueKey('join_expanded'),
+                                        decoration: BoxDecoration(
+                                          gradient: const LinearGradient(
+                                            colors: [
+                                              Color(0xFFF0F7FF),
+                                              Colors.white
+                                            ],
+                                            begin: Alignment.topLeft,
+                                            end: Alignment.bottomRight,
+                                          ),
+                                          borderRadius:
+                                              BorderRadius.circular(16),
+                                          border: Border.all(
+                                            color:
+                                                Colors.black.withOpacity(0.05),
+                                            width: 1,
+                                          ),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: Colors.black
+                                                  .withOpacity(0.08),
+                                              blurRadius: 20,
+                                              offset: const Offset(0, 8),
+                                            ),
+                                          ],
+                                        ),
+                                        child: Padding(
+                                          padding: const EdgeInsets.all(14),
+                                          child: Column(
+                                            mainAxisSize: MainAxisSize.min,
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.stretch,
+                                            children: [
+                                              Row(
+                                                children: [
+                                                  Container(
+                                                    width: 34,
+                                                    height: 34,
+                                                    decoration: BoxDecoration(
+                                                      gradient:
+                                                          const LinearGradient(
+                                                        colors: [
+                                                          Color(0xFF0A84FF),
+                                                          Color(0xFF007AFF)
+                                                        ],
+                                                        begin:
+                                                            Alignment.topLeft,
+                                                        end: Alignment
+                                                            .bottomRight,
+                                                      ),
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                              10),
+                                                      boxShadow: [
+                                                        BoxShadow(
+                                                          color: const Color(
+                                                                  0xFF0A84FF)
+                                                              .withOpacity(
+                                                                  0.25),
+                                                          blurRadius: 10,
+                                                          offset: const Offset(
+                                                              0, 4),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                    child: const Icon(
+                                                        Icons.group_add_rounded,
+                                                        color: Colors.white,
+                                                        size: 20),
+                                                  ),
+                                                  const SizedBox(width: 10),
+                                                  const Text(
+                                                    'انضمام إلى كلاس',
+                                                    style: TextStyle(
+                                                      fontSize: 16,
+                                                      fontWeight:
+                                                          FontWeight.w800,
+                                                      color: Colors.black,
+                                                    ),
+                                                  ),
+                                                  const Spacer(),
+                                                  IconButton(
+                                                    onPressed: () => setState(
+                                                        () => _joinExpanded =
+                                                            false),
+                                                    icon: const Icon(
+                                                        Icons.close_rounded,
+                                                        color:
+                                                            Color(0xFF6B7280)),
+                                                    tooltip: 'إغلاق',
+                                                  ),
+                                                ],
+                                              ),
+                                              const SizedBox(height: 12),
+                                              Row(
+                                                children: [
+                                                  Expanded(
+                                                    child: SizedBox(
+                                                      height: 54,
+                                                      child: TextField(
+                                                        controller:
+                                                            _classIdController,
+                                                        textAlignVertical:
+                                                            TextAlignVertical
+                                                                .center,
+                                                        style: const TextStyle(
+                                                          fontSize:
+                                                              13, // Smaller font
+                                                        ),
+                                                        decoration:
+                                                            InputDecoration(
+                                                          filled: true,
+                                                          fillColor:
+                                                              const Color(
+                                                                  0xFFF8FAFF),
+                                                          hintText:
+                                                              'أدخل رقم الكلاس',
+                                                          hintStyle:
+                                                              const TextStyle(
+                                                            color: Color(
+                                                                0xFF9CA3AF),
+                                                            fontSize:
+                                                                13, // Smaller hint font
+                                                          ),
+                                                          contentPadding:
+                                                              const EdgeInsets
+                                                                  .symmetric(
+                                                                  horizontal:
+                                                                      14,
+                                                                  vertical: 16),
+                                                          border:
+                                                              OutlineInputBorder(
+                                                            borderRadius:
+                                                                BorderRadius
+                                                                    .circular(
+                                                                        14),
+                                                            borderSide:
+                                                                BorderSide(
+                                                              color: Colors
+                                                                  .black
+                                                                  .withOpacity(
+                                                                      0.06),
+                                                              width: 1,
+                                                            ),
+                                                          ),
+                                                          enabledBorder:
+                                                              OutlineInputBorder(
+                                                            borderRadius:
+                                                                BorderRadius
+                                                                    .circular(
+                                                                        14),
+                                                            borderSide:
+                                                                BorderSide(
+                                                              color: Colors
+                                                                  .black
+                                                                  .withOpacity(
+                                                                      0.06),
+                                                              width: 1,
+                                                            ),
+                                                          ),
+                                                          focusedBorder:
+                                                              OutlineInputBorder(
+                                                            borderRadius:
+                                                                BorderRadius
+                                                                    .circular(
+                                                                        14),
+                                                            borderSide:
+                                                                const BorderSide(
+                                                              color: Color(
+                                                                  0xFF0A84FF),
+                                                              width: 1.5,
+                                                            ),
+                                                          ),
+                                                          prefixIcon: const Icon(
+                                                              Icons.class_,
+                                                              color: Color(
+                                                                  0xFF0A84FF)),
+                                                          suffixIcon: Container(
+                                                            width:
+                                                                40, // Further reduced width
+                                                            constraints:
+                                                                const BoxConstraints(
+                                                              maxWidth: 40,
+                                                            ),
+                                                            child: Row(
+                                                              mainAxisAlignment:
+                                                                  MainAxisAlignment
+                                                                      .end,
+                                                              mainAxisSize:
+                                                                  MainAxisSize
+                                                                      .min,
+                                                              children: [
+                                                                if (_classIdController
+                                                                    .text
+                                                                    .isNotEmpty)
+                                                                  IconButton(
+                                                                    tooltip:
+                                                                        'مسح',
+                                                                    icon: const Icon(
+                                                                        Icons
+                                                                            .clear_rounded,
+                                                                        color: Color(
+                                                                            0xFF9CA3AF),
+                                                                        size:
+                                                                            16),
+                                                                    onPressed:
+                                                                        () {
+                                                                      _classIdController
+                                                                          .clear();
+                                                                      setState(
+                                                                          () {});
+                                                                    },
+                                                                  ),
+                                                              ],
+                                                            ),
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 8),
+                                                  // Icon button instead of text button
+                                                  Container(
+                                                    height: 54,
+                                                    width: 54,
+                                                    decoration: BoxDecoration(
+                                                      gradient: _classIdController
+                                                              .text
+                                                              .trim()
+                                                              .isEmpty
+                                                          ? LinearGradient(
+                                                              colors: [
+                                                                Colors
+                                                                    .grey[300]!,
+                                                                Colors
+                                                                    .grey[400]!
+                                                              ],
+                                                              begin: Alignment
+                                                                  .topLeft,
+                                                              end: Alignment
+                                                                  .bottomRight,
+                                                            )
+                                                          : const LinearGradient(
+                                                              colors: [
+                                                                Color(
+                                                                    0xFF0A84FF),
+                                                                Color(
+                                                                    0xFF007AFF)
+                                                              ],
+                                                              begin: Alignment
+                                                                  .topLeft,
+                                                              end: Alignment
+                                                                  .bottomRight,
+                                                            ),
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                              14),
+                                                      boxShadow:
+                                                          _classIdController
+                                                                  .text
+                                                                  .trim()
+                                                                  .isEmpty
+                                                              ? null
+                                                              : [
+                                                                  BoxShadow(
+                                                                    color: const Color(
+                                                                            0xFF0A84FF)
+                                                                        .withOpacity(
+                                                                            0.25),
+                                                                    blurRadius:
+                                                                        8,
+                                                                    offset:
+                                                                        const Offset(
+                                                                            0,
+                                                                            4),
+                                                                  ),
+                                                                ],
+                                                    ),
+                                                    child: Material(
+                                                      color: Colors.transparent,
+                                                      child: InkWell(
+                                                        onTap: _classIdController
+                                                                .text
+                                                                .trim()
+                                                                .isEmpty
+                                                            ? null
+                                                            : _isJoiningClass
+                                                                ? null
+                                                                : _handleJoinClass,
+                                                        borderRadius:
+                                                            BorderRadius
+                                                                .circular(14),
+                                                        child: Center(
+                                                          child: _isJoiningClass
+                                                              ? const SizedBox(
+                                                                  width: 20,
+                                                                  height: 20,
+                                                                  child:
+                                                                      CircularProgressIndicator(
+                                                                    color: Colors
+                                                                        .white,
+                                                                    strokeWidth:
+                                                                        2,
+                                                                  ),
+                                                                )
+                                                              : const Icon(
+                                                                  Icons
+                                                                      .add_rounded,
+                                                                  color: Colors
+                                                                      .white,
+                                                                  size: 24,
+                                                                ),
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                              const SizedBox(height: 10),
+                                              Row(
+                                                children: const [
+                                                  Icon(
+                                                      Icons
+                                                          .info_outline_rounded,
+                                                      size: 16,
+                                                      color: Color(0xFF6B7280)),
+                                                  SizedBox(width: 6),
+                                                  Expanded(
+                                                    child: Text(
+                                                      'أدخل رقم الكلاس للانضمام إليه',
+                                                      style: TextStyle(
+                                                        color:
+                                                            Color(0xFF6B7280),
+                                                        fontSize: 12,
+                                                        fontWeight:
+                                                            FontWeight.w500,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
                               ),
-                              child: Column(
+                              const SizedBox(height: 24),
+                              Row(
                                 children: [
-                                  Icon(
-                                    Icons.school_outlined,
-                                    color: Colors.grey[400],
-                                    size: 48,
-                                  ),
-                                  const SizedBox(height: 12),
-                                  Text(
-                                    'لم تنضم إلى أي كلاس بعد',
+                                  const Text(
+                                    'الكلاسات المنضَمّة',
                                     style: TextStyle(
-                                      color: Colors.grey[600],
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w500,
+                                      color: Colors.black,
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.bold,
                                     ),
                                   ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    'استخدم زر "انضمام إلى كلاس" لإضافة كلاس جديد',
-                                    style: TextStyle(
-                                      color: Colors.grey[500],
-                                      fontSize: 14,
-                                    ),
-                                    textAlign: TextAlign.center,
+                                  const Spacer(),
+                                  IconButton(
+                                    onPressed: () {
+                                      _loadJoinedClasses();
+                                      _loadSubscriptionData();
+                                    },
+                                    icon: const Icon(Icons.refresh,
+                                        color: Color(0xFF0A84FF)),
+                                    tooltip: 'تحديث القائمة',
                                   ),
                                 ],
                               ),
-                            ),
-                        ],
+                              const SizedBox(height: 16),
+                              _isLoadingClasses
+                                  ? const Center(
+                                      child: CircularProgressIndicator(
+                                        color: Color(0xFF0A84FF),
+                                      ),
+                                    )
+                                  : RefreshIndicator(
+                                      onRefresh: () async {
+                                        await _loadJoinedClasses();
+                                        await _loadSubscriptionData();
+                                      },
+                                      color: const Color(0xFF0A84FF),
+                                      child: ListView.separated(
+                                        shrinkWrap: true,
+                                        physics: const NeverScrollableScrollPhysics(),
+                                        itemCount: _joinedClasses.length,
+                                        separatorBuilder: (_, __) =>
+                                            const SizedBox(height: 12),
+                                        itemBuilder: (context, index) {
+                                          final klass = _joinedClasses[index];
+                                          print(
+                                              'HomeScreen: Building ClassCard for ${klass['name']} with status: ${klass['status']}');
+                                          return ClassCard(
+                                            className:
+                                                klass['name']?.toString() ??
+                                                    'كلاس',
+                                            status:
+                                                klass['status']?.toString() ??
+                                                    'active',
+                                            onTap: () {
+                                              // Immediate navigation with no delay
+                                              context.push(
+                                                '/classroom',
+                                                extra: {
+                                                  'id': klass['id']
+                                                          ?.toString() ??
+                                                      '',
+                                                  'name': klass['name']
+                                                          ?.toString() ??
+                                                      'كلاس',
+                                                },
+                                              );
+                                            },
+                                          );
+                                        },
+                                      ),
+                                    ),
+                              // Empty state for joined classes
+                              if (!_isLoadingClasses && _joinedClasses.isEmpty)
+                                Container(
+                                  margin:
+                                      const EdgeInsets.symmetric(vertical: 40),
+                                  padding: const EdgeInsets.all(24),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.6),
+                                    borderRadius: BorderRadius.circular(16),
+                                    border: Border.all(
+                                      color: Colors.black.withOpacity(0.08),
+                                      width: 1,
+                                    ),
+                                  ),
+                                  child: Column(
+                                    children: [
+                                      Icon(
+                                        Icons.school_outlined,
+                                        color: Colors.grey[400],
+                                        size: 48,
+                                      ),
+                                      const SizedBox(height: 12),
+                                      Text(
+                                        'لم تنضم إلى أي كلاس بعد',
+                                        style: TextStyle(
+                                          color: Colors.grey[600],
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        'استخدم زر "انضمام إلى كلاس" لإضافة كلاس جديد',
+                                        style: TextStyle(
+                                          color: Colors.grey[500],
+                                          fontSize: 14,
+                                        ),
+                                        textAlign: TextAlign.center,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
                       ),
                     ),
                   ),

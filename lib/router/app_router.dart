@@ -23,66 +23,64 @@ class AppRouter {
     redirect: (context, state) async {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
 
-      // Load stored data if not already loaded (first time) - blocking until loaded
+      // Only load stored data if not already loaded
       if (!authProvider.isAuthenticated && authProvider.user == null) {
-        print('AppRouter: Loading stored login data...');
-        await authProvider.loadStoredLoginData();
-        print(
-            'AppRouter: Stored login data loaded, isAuthenticated: ${authProvider.isAuthenticated}');
+        try {
+          await authProvider.loadStoredLoginData();
+        } catch (e) {
+          print('AppRouter: Error loading stored data: $e');
+        }
       }
 
       final isAuthenticated = authProvider.isAuthenticated;
       final isSubscribed = authProvider.isSubscribed;
-      final isLoginRoute = state.uri.path == '/login';
-      final isSignupRoute = state.uri.path == '/signup';
-      final isPlanSelectionRoute = state.uri.path == '/plan-selection';
-      final isForgetPasswordRoute = state.uri.path == '/forget-password';
-      final isOtpRoute = state.uri.path == '/otp';
-      final isResetPasswordRoute = state.uri.path == '/reset-password';
-      final isPlansRoute = state.uri.path == '/plans';
-      final isPaymentRoute = state.uri.path == '/payment';
-      final isPaymentConfirmationRoute =
-          state.uri.path == '/payment-confirmation';
+      final currentPath = state.uri.path;
 
-      // If user is authenticated but not subscribed (pending user), allow payment/plan-selection flow, but do not hijack signup or plans pages
-      if (isAuthenticated && !isSubscribed) {
-        if (!(isPlanSelectionRoute ||
-            isPaymentConfirmationRoute ||
-            isPaymentRoute)) {
-          return '/plan-selection';
+      print('AppRouter: Current path: $currentPath');
+      print('AppRouter: Is authenticated: $isAuthenticated');
+      print('AppRouter: Is subscribed: $isSubscribed');
+
+      // If user is not authenticated and trying to access protected routes
+      if (!isAuthenticated) {
+        if (currentPath == '/login' ||
+            currentPath == '/signup' ||
+            currentPath == '/plan-selection' ||
+            currentPath == '/forget-password' ||
+            currentPath == '/otp' ||
+            currentPath == '/reset-password' ||
+            currentPath == '/plans' ||
+            currentPath == '/payment' ||
+            currentPath == '/payment-confirmation') {
+          return null; // Allow access to auth and payment routes
+        } else {
+          return '/login'; // Redirect to login for protected routes
         }
       }
 
-      // If user is authenticated and trying to access auth screens, redirect to home
-      if (isAuthenticated &&
-          isSubscribed &&
-          (isLoginRoute ||
-              isSignupRoute ||
-              isForgetPasswordRoute ||
-              isOtpRoute ||
-              isResetPasswordRoute)) {
-        return '/home';
+      // If user is authenticated but not subscribed
+      if (isAuthenticated && !isSubscribed) {
+        if (currentPath == '/plan-selection' ||
+            currentPath == '/payment' ||
+            currentPath == '/payment-confirmation') {
+          return null; // Allow access to payment flow
+        } else {
+          return '/plan-selection'; // Redirect to plan selection
+        }
       }
 
-      // If user is authenticated and subscribed, and tries to access plans or payment, redirect to home
-      if (isAuthenticated && isSubscribed && (isPlansRoute || isPaymentRoute)) {
-        return '/home';
+      // If user is authenticated and subscribed
+      if (isAuthenticated && isSubscribed) {
+        if (currentPath == '/login' ||
+            currentPath == '/signup' ||
+            currentPath == '/forget-password' ||
+            currentPath == '/otp' ||
+            currentPath == '/reset-password') {
+          return '/home'; // Redirect to home for auth routes
+        }
+        // Allow access to plan-selection, plans, payment, and payment-confirmation for upgrades
       }
 
-      // If user is not authenticated and trying to access protected routes (except auth and signup/plans/payment flows), redirect to login
-      if (!isAuthenticated &&
-          !isLoginRoute &&
-          !isSignupRoute &&
-          !isPlanSelectionRoute &&
-          !isForgetPasswordRoute &&
-          !isOtpRoute &&
-          !isResetPasswordRoute &&
-          !isPlansRoute &&
-          !isPaymentRoute) {
-        return '/login';
-      }
-
-      return null;
+      return null; // No redirect needed
     },
     routes: [
       GoRoute(
