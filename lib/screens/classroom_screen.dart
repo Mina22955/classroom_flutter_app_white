@@ -44,6 +44,8 @@ class _ClassroomScreenState extends State<ClassroomScreen> {
 
   // Track expansion state for video and exam cards
   final Map<String, bool> _expandedStates = {};
+  // Cache for submission status per taskId to avoid repeated calls
+  final Map<String, bool> _taskSubmissionStatus = {};
 
   @override
   void dispose() {
@@ -744,10 +746,14 @@ class _ClassroomScreenState extends State<ClassroomScreen> {
                   tilePadding:
                       const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                  onExpansionChanged: (expanded) {
+                  onExpansionChanged: (expanded) async {
                     setState(() {
                       _expandedStates[examKey] = expanded;
                     });
+                    if (expanded) {
+                      await _checkAndCacheSubmissionStatus(exam['id']!);
+                      if (mounted) setState(() {});
+                    }
                   },
                   title: Text(
                     exam['title']!,
@@ -865,7 +871,12 @@ class _ClassroomScreenState extends State<ClassroomScreen> {
                     GestureDetector(
                       onTap: exam['isExpired'] == true
                           ? () => _showExpiredDialog(exam['title']!)
-                          : () => _openPdf(exam['pdfUrl']!, exam['title']!),
+                          : (_taskSubmissionStatus[exam['id']] == true
+                              ? () => _showAlreadySubmittedDialog()
+                              : () => _openPdf(
+                                    exam['pdfUrl']!,
+                                    exam['title']!,
+                                  )),
                       child: Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
@@ -903,14 +914,6 @@ class _ClassroomScreenState extends State<ClassroomScreen> {
                             ),
                             Row(
                               children: [
-                                if (exam['isExpired'] != true) ...[
-                                  const Icon(
-                                    Icons.visibility,
-                                    color: Color(0xFF0A84FF),
-                                    size: 16,
-                                  ),
-                                  const SizedBox(width: 4),
-                                ],
                                 Container(
                                   padding: const EdgeInsets.symmetric(
                                       horizontal: 8, vertical: 4),
@@ -924,18 +927,33 @@ class _ClassroomScreenState extends State<ClassroomScreen> {
                                             begin: Alignment.topLeft,
                                             end: Alignment.bottomRight,
                                           )
-                                        : const LinearGradient(
-                                            colors: [
-                                              Color(0xFF0A84FF),
-                                              Color(0xFF007AFF)
-                                            ],
-                                            begin: Alignment.topLeft,
-                                            end: Alignment.bottomRight,
-                                          ),
+                                        : (_taskSubmissionStatus[exam['id']] ==
+                                                true
+                                            ? const LinearGradient(
+                                                colors: [
+                                                  Color(0xFF16A34A),
+                                                  Color(0xFF22C55E),
+                                                ],
+                                                begin: Alignment.topLeft,
+                                                end: Alignment.bottomRight,
+                                              )
+                                            : const LinearGradient(
+                                                colors: [
+                                                  Color(0xFF0A84FF),
+                                                  Color(0xFF007AFF)
+                                                ],
+                                                begin: Alignment.topLeft,
+                                                end: Alignment.bottomRight,
+                                              )),
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                   child: Text(
-                                    exam['isExpired'] == true ? 'منتهي' : 'عرض',
+                                    exam['isExpired'] == true
+                                        ? 'منتهي'
+                                        : (_taskSubmissionStatus[exam['id']] ==
+                                                true
+                                            ? 'تم التسليم'
+                                            : 'عرض'),
                                     style: const TextStyle(
                                         color: Colors.white,
                                         fontSize: 12,
@@ -957,24 +975,36 @@ class _ClassroomScreenState extends State<ClassroomScreen> {
                         child: TextButton.icon(
                           onPressed: exam['isExpired'] == true
                               ? () => _showExpiredExamDialog(exam['title']!)
-                              : () => _submitExamSolution(
-                                  exam['id']!, exam['title']!),
+                              : (_taskSubmissionStatus[exam['id']] == true
+                                  ? () => _showAlreadySubmittedDialog()
+                                  : () => _submitExamSolution(
+                                        exam['id']!,
+                                        exam['title']!,
+                                      )),
                           icon: Icon(
                             exam['isExpired'] == true
                                 ? Icons.warning_amber_rounded
-                                : Icons.add,
+                                : (_taskSubmissionStatus[exam['id']] == true
+                                    ? Icons.check_circle_outline
+                                    : Icons.add),
                             color: exam['isExpired'] == true
                                 ? Colors.orange
-                                : const Color(0xFF0A84FF),
+                                : (_taskSubmissionStatus[exam['id']] == true
+                                    ? const Color(0xFF16A34A)
+                                    : const Color(0xFF0A84FF)),
                           ),
                           label: Text(
                             exam['isExpired'] == true
                                 ? 'انتهت الصلاحية'
-                                : 'تسليم الاختبار',
+                                : (_taskSubmissionStatus[exam['id']] == true
+                                    ? 'تم التسليم'
+                                    : 'تسليم الاختبار'),
                             style: TextStyle(
                               color: exam['isExpired'] == true
                                   ? Colors.orange
-                                  : const Color(0xFF0A84FF),
+                                  : (_taskSubmissionStatus[exam['id']] == true
+                                      ? const Color(0xFF16A34A)
+                                      : const Color(0xFF0A84FF)),
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
                             ),
@@ -982,11 +1012,15 @@ class _ClassroomScreenState extends State<ClassroomScreen> {
                           style: TextButton.styleFrom(
                             foregroundColor: exam['isExpired'] == true
                                 ? Colors.orange
-                                : const Color(0xFF0A84FF),
+                                : (_taskSubmissionStatus[exam['id']] == true
+                                    ? const Color(0xFF16A34A)
+                                    : const Color(0xFF0A84FF)),
                             side: BorderSide(
                                 color: exam['isExpired'] == true
                                     ? Colors.orange
-                                    : const Color(0xFF0A84FF),
+                                    : (_taskSubmissionStatus[exam['id']] == true
+                                        ? const Color(0xFF16A34A)
+                                        : const Color(0xFF0A84FF)),
                                 width: 1.5),
                             shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12)),
@@ -1553,6 +1587,9 @@ class _ClassroomScreenState extends State<ClassroomScreen> {
             'تم تسليم الحل بنجاح',
             submissionResult['message'] ?? 'تم تسليم حل الامتحان بنجاح',
           );
+          // Mark as submitted locally
+          _taskSubmissionStatus[taskId] = true;
+          if (mounted) setState(() {});
         } else {
           _showErrorDialog(
             'فشل في تسليم الحل',
@@ -1574,6 +1611,88 @@ class _ClassroomScreenState extends State<ClassroomScreen> {
 
       _showErrorDialog('خطا في تسليم الامتحان', errorMessage);
     }
+  }
+
+  Future<void> _checkAndCacheSubmissionStatus(String taskId) async {
+    try {
+      // If already known, skip
+      if (_taskSubmissionStatus.containsKey(taskId)) return;
+
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final token = authProvider.token;
+      final studentId = authProvider.user?['id']?.toString() ??
+          authProvider.user?['_id']?.toString() ??
+          '';
+
+      if (token == null || token.isEmpty || studentId.isEmpty) return;
+
+      final taskDetails = await _apiService.getTaskDetails(
+        classId: widget.classId,
+        taskId: taskId,
+        accessToken: token,
+      );
+
+      if (taskDetails == null) return;
+
+      final submittedStudents = (taskDetails['submittedStudents'] as List?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          [];
+
+      final isSubmitted = submittedStudents.contains(studentId);
+      _taskSubmissionStatus[taskId] = isSubmitted;
+    } catch (e) {
+      // Silent fail; keep as not submitted
+    }
+  }
+
+  void _showAlreadySubmittedDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return Directionality(
+          textDirection: TextDirection.rtl,
+          child: AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            title: Row(
+              children: const [
+                Icon(
+                  Icons.info_outline,
+                  color: Color(0xFF0A84FF),
+                  size: 24,
+                ),
+                SizedBox(width: 8),
+                Text(
+                  'تم التسليم مسبقاً',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+            content: const Text(
+              'لقد قمت بتسليم هذا الامتحان مسبقاً، ولا يمكنك إعادة التسليم.',
+              style: TextStyle(fontSize: 14),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text(
+                  'موافق',
+                  style: TextStyle(
+                    color: Color(0xFF0A84FF),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   void _showErrorDialog(String title, String message) {

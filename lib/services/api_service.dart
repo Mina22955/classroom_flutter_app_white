@@ -11,6 +11,24 @@ class ApiService {
 
   static const String baseUrl = 'https://class-room-backend-nodejs.vercel.app';
 
+  String? _accessToken; // default token to attach to all requests
+
+  void setAccessToken(String? token) {
+    _accessToken = token;
+    print('ApiService: Default access token updated: '
+        '${token != null ? token.substring(0, token.length > 10 ? 10 : token.length) + '...' : 'null'}');
+  }
+
+  Map<String, String> _buildHeaders({String? accessToken, bool json = true}) {
+    final effectiveToken = (accessToken != null && accessToken.isNotEmpty)
+        ? accessToken
+        : (_accessToken ?? '');
+    return <String, String>{
+      if (json) 'Content-Type': 'application/json',
+      if (effectiveToken.isNotEmpty) 'Authorization': 'Bearer $effectiveToken',
+    };
+  }
+
   // Mock delay to simulate network requests
   Future<void> _mockDelay() async {
     await Future.delayed(const Duration(seconds: 1));
@@ -23,11 +41,7 @@ class ApiService {
   }) async {
     try {
       final uri = Uri.parse('$baseUrl/api/student/class/$classId/Allfiles');
-      final headers = {
-        'Content-Type': 'application/json',
-        if (accessToken != null && accessToken.isNotEmpty)
-          'Authorization': 'Bearer $accessToken',
-      };
+      final headers = _buildHeaders(accessToken: accessToken);
 
       print('Making API call to: $uri');
       print('Headers: $headers');
@@ -103,11 +117,7 @@ class ApiService {
   }) async {
     try {
       final uri = Uri.parse('$baseUrl/api/student/classes/$classId/notes');
-      final headers = {
-        'Content-Type': 'application/json',
-        if (accessToken != null && accessToken.isNotEmpty)
-          'Authorization': 'Bearer $accessToken',
-      };
+      final headers = _buildHeaders(accessToken: accessToken);
 
       print('Making API call to: $uri');
       print('Headers: $headers');
@@ -160,11 +170,7 @@ class ApiService {
   }) async {
     try {
       final uri = Uri.parse('$baseUrl/api/student/$studentId/classes');
-      final headers = {
-        'Content-Type': 'application/json',
-        if (accessToken != null && accessToken.isNotEmpty)
-          'Authorization': 'Bearer $accessToken',
-      };
+      final headers = _buildHeaders(accessToken: accessToken);
 
       final response = await http.get(uri, headers: headers);
 
@@ -200,11 +206,7 @@ class ApiService {
   }) async {
     try {
       final uri = Uri.parse('$baseUrl/api/student/join-class');
-      final headers = {
-        'Content-Type': 'application/json',
-        if (accessToken != null && accessToken.isNotEmpty)
-          'Authorization': 'Bearer $accessToken',
-      };
+      final headers = _buildHeaders(accessToken: accessToken);
 
       final response = await http.post(
         uri,
@@ -955,11 +957,7 @@ class ApiService {
   }) async {
     try {
       final uri = Uri.parse('$baseUrl/api/user/$userId/subscription');
-      final headers = {
-        'Content-Type': 'application/json',
-        if (accessToken != null && accessToken.isNotEmpty)
-          'Authorization': 'Bearer $accessToken',
-      };
+      final headers = _buildHeaders(accessToken: accessToken);
 
       print('Making API call to: $uri');
       print('Headers: $headers');
@@ -1185,11 +1183,7 @@ class ApiService {
   }) async {
     try {
       final uri = Uri.parse('$baseUrl/api/student/class/$classId/tasks');
-      final headers = {
-        'Content-Type': 'application/json',
-        if (accessToken != null && accessToken.isNotEmpty)
-          'Authorization': 'Bearer $accessToken',
-      };
+      final headers = _buildHeaders(accessToken: accessToken);
 
       print('Making API call to: $uri');
       print('Headers: $headers');
@@ -1276,6 +1270,42 @@ class ApiService {
     }
   }
 
+  // Get single task details (to check submission status)
+  Future<Map<String, dynamic>?> getTaskDetails({
+    required String classId,
+    required String taskId,
+    String? accessToken,
+  }) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/student/class/$classId/task/$taskId');
+      final headers = _buildHeaders(accessToken: accessToken);
+
+      print('Making API call to: $uri');
+      print('Headers: $headers');
+
+      final response = await http.get(uri, headers: headers);
+
+      print('Response status: ${response.statusCode}');
+      print('Response body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        print('API Response for task details: $data');
+        if (data is Map<String, dynamic>) {
+          return data;
+        }
+        return null;
+      } else {
+        print(
+            'Error fetching task details: ${response.statusCode} - ${response.body}');
+        return null;
+      }
+    } catch (e) {
+      print('Exception fetching task details: $e');
+      return null;
+    }
+  }
+
   // Update user profile
   Future<Map<String, dynamic>> updateUserProfile({
     required String studentId,
@@ -1287,11 +1317,7 @@ class ApiService {
   }) async {
     try {
       final uri = Uri.parse('$baseUrl/api/student/$studentId/updateUser');
-      final headers = {
-        'Content-Type': 'application/json',
-        if (accessToken != null && accessToken.isNotEmpty)
-          'Authorization': 'Bearer $accessToken',
-      };
+      final headers = _buildHeaders(accessToken: accessToken);
 
       final body = {
         'name': name,
@@ -1527,8 +1553,11 @@ class ApiService {
       var request = http.MultipartRequest('POST', uri);
 
       // Add headers
-      if (accessToken != null && accessToken.isNotEmpty) {
-        request.headers['Authorization'] = 'Bearer $accessToken';
+      final effectiveToken = (accessToken != null && accessToken.isNotEmpty)
+          ? accessToken
+          : _accessToken;
+      if (effectiveToken != null && effectiveToken.isNotEmpty) {
+        request.headers['Authorization'] = 'Bearer $effectiveToken';
       }
 
       // Add file with proper content type

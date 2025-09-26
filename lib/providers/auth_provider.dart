@@ -83,6 +83,9 @@ class AuthProvider extends ChangeNotifier {
         _user = response['user'];
         _isAuthenticated = true;
 
+        // Make token available for all API calls by default
+        _apiService.setAccessToken(_token);
+
         // Save login data to secure storage
         await _saveLoginData();
 
@@ -882,6 +885,8 @@ class AuthProvider extends ChangeNotifier {
         _token = token;
         _user = jsonDecode(userDataString);
         _isAuthenticated = true;
+        // Set default token into API service for all calls
+        _apiService.setAccessToken(_token);
         if (deviceToken != null) {
           _deviceToken = deviceToken;
         }
