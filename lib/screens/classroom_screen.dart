@@ -5,6 +5,7 @@ import 'package:file_picker/file_picker.dart';
 import '../widgets/note_card.dart';
 import '../widgets/gradient_bg.dart';
 import '../widgets/secure_pdf_viewer.dart';
+import '../widgets/youtube_player_widget.dart';
 import '../services/api_service.dart';
 import '../providers/auth_provider.dart';
 
@@ -66,10 +67,28 @@ class _ClassroomScreenState extends State<ClassroomScreen> {
   Future<void> _loadVideos() async {
     setState(() => _isLoadingVideos = true);
     try {
-      final videos = await _apiService.listVideos(classId: widget.classId);
+      // Get token from AuthProvider
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final token = authProvider.token;
+      print('=== LOADING VIDEOS ===');
+      print('ClassId: ${widget.classId}');
+      print('Token available: ${token != null}');
+      if (token != null) {
+        print('Token preview: ${token.substring(0, 20)}...');
+      }
+
+      final videos = await _apiService.listVideos(
+        classId: widget.classId,
+        accessToken: token,
+      );
+      print('=== VIDEOS LOADED ===');
+      print('Videos count: ${videos.length}');
+      print('Videos data: $videos');
       setState(() => _videos = videos);
     } catch (e) {
-      // Handle error
+      print('=== ERROR LOADING VIDEOS ===');
+      print('Error: $e');
+      print('Stack trace: ${StackTrace.current}');
     } finally {
       setState(() => _isLoadingVideos = false);
     }
@@ -268,12 +287,63 @@ class _ClassroomScreenState extends State<ClassroomScreen> {
           child: CircularProgressIndicator(color: Color(0xFF0A84FF)),
         );
       }
+
+      if (_videos.isEmpty) {
+        return Directionality(
+          textDirection: TextDirection.rtl,
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.video_collection_outlined,
+                  size: 64,
+                  color: Colors.grey[400],
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'لا توجد فيديوهات بعد',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey[600],
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'سيتم عرض الفيديوهات هنا عندما يرفعها المعلم',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey[500],
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 24),
+                ElevatedButton.icon(
+                  onPressed: _loadVideos,
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('تحديث'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF0A84FF),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }
+
       items = _videos
           .map((video) => {
                 'id': video['id'],
+                'videoId': video['videoId'],
                 'title': video['title'],
-                'content':
-                    'مدة الفيديو: ${_formatDuration(video['durationSec'] ?? 0)}',
+                'description': video['description'],
+                'uploadedAt': video['uploadedAt'],
                 'url': video['url'],
               })
           .toList();
@@ -647,14 +717,18 @@ class _ClassroomScreenState extends State<ClassroomScreen> {
     if (_currentIndex == 2) {
       return Directionality(
         textDirection: TextDirection.rtl,
-        child: ListView.separated(
-          padding: const EdgeInsets.all(16),
-          itemCount: items.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 10),
-          itemBuilder: (context, index) {
-            final video = items[index];
-            return _buildVideoCard(video);
-          },
+        child: RefreshIndicator(
+          onRefresh: _loadVideos,
+          color: const Color(0xFF0A84FF),
+          child: ListView.separated(
+            padding: const EdgeInsets.all(16),
+            itemCount: items.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 10),
+            itemBuilder: (context, index) {
+              final video = items[index];
+              return _buildVideoCard(video);
+            },
+          ),
         ),
       );
     }
@@ -1189,12 +1263,6 @@ class _ClassroomScreenState extends State<ClassroomScreen> {
     );
   }
 
-  String _formatDuration(int seconds) {
-    final minutes = seconds ~/ 60;
-    final remainingSeconds = seconds % 60;
-    return '${minutes.toString().padLeft(2, '0')}:${remainingSeconds.toString().padLeft(2, '0')}';
-  }
-
   Widget _buildVideoCard(Map<String, dynamic> video) {
     final videoKey = 'video_${video['id']}';
     final isExpanded = _expandedStates[videoKey] ?? false;
@@ -1236,13 +1304,44 @@ class _ClassroomScreenState extends State<ClassroomScreen> {
           ),
           subtitle: Padding(
             padding: const EdgeInsets.only(top: 6),
-            child: Text(
-              video['content']!,
-              style: const TextStyle(color: Color(0xFF6B7280), fontSize: 13),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (video['description'] != null &&
+                    video['description'].isNotEmpty)
+                  Text(
+                    video['description']!,
+                    style:
+                        const TextStyle(color: Color(0xFF6B7280), fontSize: 13),
+                  ),
+                if (video['uploadedAt'] != null &&
+                    video['uploadedAt'].isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.schedule,
+                        size: 14,
+                        color: Color(0xFF0A84FF),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        _formatUploadDate(video['uploadedAt']!),
+                        style: const TextStyle(
+                          color: Color(0xFF6B7280),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ],
             ),
           ),
           children: [
-            // Video player container
+            // YouTube player widget
             Container(
               height: 200,
               decoration: BoxDecoration(
@@ -1251,65 +1350,41 @@ class _ClassroomScreenState extends State<ClassroomScreen> {
                 border:
                     Border.all(color: Colors.black.withOpacity(0.08), width: 1),
               ),
-              child: Stack(
-                children: [
-                  // Video thumbnail/placeholder
-                  Container(
-                    width: double.infinity,
-                    height: double.infinity,
-                    decoration: BoxDecoration(
-                      color: Colors.grey[200],
-                      borderRadius: BorderRadius.circular(12),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Stack(
+                  children: [
+                    // YouTube player
+                    YoutubePlayerWidget(
+                      videoId: video['videoId'] ?? '',
+                      title: video['title'] ?? 'فيديو',
+                      autoPlay: false,
+                      showControls: true,
+                      aspectRatio: 16 / 9,
                     ),
-                    child: const Center(
-                      child: Icon(
-                        Icons.video_collection,
-                        color: Colors.black38,
-                        size: 48,
-                      ),
-                    ),
-                  ),
-                  // Play button overlay
-                  Center(
-                    child: GestureDetector(
-                      onTap: () => _playVideo(video['url']!),
-                      child: Container(
-                        width: 60,
-                        height: 60,
-                        decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.7),
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white, width: 2),
-                        ),
-                        child: const Icon(
-                          Icons.play_arrow,
-                          color: Colors.white,
-                          size: 32,
+                    // Fullscreen button overlay
+                    Positioned(
+                      top: 8,
+                      right: 8,
+                      child: GestureDetector(
+                        onTap: () => _playVideoFullscreen(
+                            video['videoId']!, video['title']!),
+                        child: Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.7),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: const Icon(
+                            Icons.fullscreen,
+                            color: Colors.white,
+                            size: 20,
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                  // Fullscreen button
-                  Positioned(
-                    top: 8,
-                    right: 8,
-                    child: GestureDetector(
-                      onTap: () => _playVideoFullscreen(video['url']!),
-                      child: Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.7),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: const Icon(
-                          Icons.fullscreen,
-                          color: Colors.white,
-                          size: 20,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ],
@@ -1318,17 +1393,35 @@ class _ClassroomScreenState extends State<ClassroomScreen> {
     );
   }
 
-  void _playVideo(String videoUrl) {
-    // TODO: Implement video player
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('تشغيل الفيديو: $videoUrl')),
-    );
+  String _formatUploadDate(String isoDate) {
+    try {
+      final date = DateTime.parse(isoDate);
+      final now = DateTime.now();
+      final difference = now.difference(date);
+
+      if (difference.inDays > 0) {
+        return 'منذ ${difference.inDays} يوم';
+      } else if (difference.inHours > 0) {
+        return 'منذ ${difference.inHours} ساعة';
+      } else if (difference.inMinutes > 0) {
+        return 'منذ ${difference.inMinutes} دقيقة';
+      } else {
+        return 'الآن';
+      }
+    } catch (e) {
+      return 'تاريخ غير محدد';
+    }
   }
 
-  void _playVideoFullscreen(String videoUrl) {
-    // TODO: Implement fullscreen video player
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('تشغيل الفيديو في وضع ملء الشاشة: $videoUrl')),
+  void _playVideoFullscreen(String videoId, String title) {
+    // Open YouTube video in fullscreen mode within the app
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => YoutubePlayerFullscreen(
+          videoId: videoId,
+          title: title,
+        ),
+      ),
     );
   }
 

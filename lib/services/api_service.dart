@@ -1084,41 +1084,202 @@ class ApiService {
     ];
   }
 
-  Future<List<Map<String, dynamic>>> listVideos(
-      {required String classId}) async {
-    await _mockDelay();
-    return [
-      {
-        'id': 'v1',
-        'title': 'شرح الوحدة الأولى - الرياضيات',
-        'url': 'https://example.com/video1.mp4',
-        'durationSec': 1245, // 20:45
-      },
-      {
-        'id': 'v2',
-        'title': 'شرح الوحدة الثانية - الفيزياء',
-        'url': 'https://example.com/video2.mp4',
-        'durationSec': 900, // 15:00
-      },
-      {
-        'id': 'v3',
-        'title': 'مراجعة شاملة للفصل الأول',
-        'url': 'https://example.com/video3.mp4',
-        'durationSec': 1800, // 30:00
-      },
-      {
-        'id': 'v4',
-        'title': 'حل التمارين العملية',
-        'url': 'https://example.com/video4.mp4',
-        'durationSec': 720, // 12:00
-      },
-      {
-        'id': 'v5',
-        'title': 'شرح النظريات الأساسية',
-        'url': 'https://example.com/video5.mp4',
-        'durationSec': 1080, // 18:00
-      },
-    ];
+  Future<List<Map<String, dynamic>>> listVideos({
+    required String classId,
+    String? accessToken,
+  }) async {
+    try {
+      print('API Service: Fetching videos for classId: $classId');
+
+      final headers = _buildHeaders(accessToken: accessToken);
+
+      var response = await http.get(
+        Uri.parse('$baseUrl/api/student/classes/$classId/videos'),
+        headers: headers,
+      );
+
+      print('API Service: Videos response status: ${response.statusCode}');
+      print('API Service: Videos response body: ${response.body}');
+
+      // If the plural endpoint doesn't work, try the singular endpoint
+      if (response.statusCode == 404) {
+        print('API Service: Trying singular endpoint...');
+        response = await http.get(
+          Uri.parse('$baseUrl/api/student/class/$classId/videos'),
+          headers: headers,
+        );
+        print(
+            'API Service: Singular endpoint response status: ${response.statusCode}');
+        print('API Service: Singular endpoint response body: ${response.body}');
+      }
+
+      // If still 404, try other possible endpoints
+      if (response.statusCode == 404) {
+        print('API Service: Trying content endpoint...');
+        response = await http.get(
+          Uri.parse('$baseUrl/api/student/classes/$classId/content'),
+          headers: headers,
+        );
+        print(
+            'API Service: Content endpoint response status: ${response.statusCode}');
+        print('API Service: Content endpoint response body: ${response.body}');
+      }
+
+      if (response.statusCode == 404) {
+        print('API Service: Trying media endpoint...');
+        response = await http.get(
+          Uri.parse('$baseUrl/api/student/classes/$classId/media'),
+          headers: headers,
+        );
+        print(
+            'API Service: Media endpoint response status: ${response.statusCode}');
+        print('API Service: Media endpoint response body: ${response.body}');
+      }
+
+      if (response.statusCode == 404) {
+        print('API Service: Trying materials endpoint...');
+        response = await http.get(
+          Uri.parse('$baseUrl/api/student/classes/$classId/materials'),
+          headers: headers,
+        );
+        print(
+            'API Service: Materials endpoint response status: ${response.statusCode}');
+        print(
+            'API Service: Materials endpoint response body: ${response.body}');
+      }
+
+      // Try teacher-specific endpoints
+      if (response.statusCode == 404) {
+        print('API Service: Trying teacher videos endpoint...');
+        response = await http.get(
+          Uri.parse('$baseUrl/api/teacher/class/$classId/videos'),
+          headers: headers,
+        );
+        print(
+            'API Service: Teacher videos endpoint response status: ${response.statusCode}');
+        print(
+            'API Service: Teacher videos endpoint response body: ${response.body}');
+      }
+
+      if (response.statusCode == 404) {
+        print('API Service: Trying all files endpoint...');
+        response = await http.get(
+          Uri.parse('$baseUrl/api/student/class/$classId/Allfiles'),
+          headers: headers,
+        );
+        print(
+            'API Service: All files endpoint response status: ${response.statusCode}');
+        print(
+            'API Service: All files endpoint response body: ${response.body}');
+      }
+
+      if (response.statusCode == 200) {
+        final responseData = jsonDecode(response.body);
+        print('API Service: Videos response data: $responseData');
+
+        // Handle different possible response formats
+        List<dynamic> videosList = [];
+
+        if (responseData is Map<String, dynamic>) {
+          // Try different possible keys for videos array
+          if (responseData.containsKey('videos') &&
+              responseData['videos'] is List) {
+            videosList = responseData['videos'] as List;
+            print('API Service: Found videos in "videos" key');
+          } else if (responseData.containsKey('data') &&
+              responseData['data'] is List) {
+            videosList = responseData['data'] as List;
+            print('API Service: Found videos in "data" key');
+          } else if (responseData.containsKey('results') &&
+              responseData['results'] is List) {
+            videosList = responseData['results'] as List;
+            print('API Service: Found videos in "results" key');
+          } else if (responseData.containsKey('files') &&
+              responseData['files'] is List) {
+            // Check if files contain videos
+            final files = responseData['files'] as List;
+            videosList = files.where((file) {
+              final fileType = file['type']?.toString().toLowerCase() ?? '';
+              final fileName = file['name']?.toString().toLowerCase() ?? '';
+              final fileUrl = file['url']?.toString().toLowerCase() ?? '';
+              return fileType.contains('video') ||
+                  fileName.contains('video') ||
+                  fileUrl.contains('youtube') ||
+                  fileUrl.contains('video') ||
+                  fileType.contains('mp4') ||
+                  fileType.contains('avi') ||
+                  fileType.contains('mov');
+            }).toList();
+            print(
+                'API Service: Found ${videosList.length} video files in "files" key');
+          } else {
+            print('API Service: No videos array found in response');
+            print('API Service: Available keys: ${responseData.keys.toList()}');
+            return [];
+          }
+        } else if (responseData is List) {
+          videosList = responseData;
+          print('API Service: Response is direct list');
+        } else {
+          print(
+              'API Service: Unexpected response format: ${responseData.runtimeType}');
+          return [];
+        }
+
+        if (videosList.isNotEmpty) {
+          final videos = videosList.map((video) {
+            print('API Service: Processing video: $video');
+
+            // Extract video ID from YouTube URL if present
+            String? videoId = video['videoId'] ?? video['youtubeId'];
+            String? videoUrl =
+                video['url'] ?? video['fileUrl'] ?? video['pdfUrl'];
+
+            // If no videoId but we have a URL, try to extract YouTube ID
+            if (videoId == null && videoUrl != null) {
+              final url = videoUrl.toString();
+              if (url.contains('youtube.com/watch?v=')) {
+                videoId = url.split('v=')[1].split('&')[0];
+              } else if (url.contains('youtu.be/')) {
+                videoId = url.split('youtu.be/')[1].split('?')[0];
+              }
+            }
+
+            return {
+              'id': video['_id'] ?? video['id'] ?? '',
+              'videoId': videoId ?? '',
+              'title': video['name'] ??
+                  video['title'] ??
+                  video['fileName'] ??
+                  'فيديو بدون عنوان',
+              'description': video['description'] ?? '',
+              'uploadedAt': video['uploadedAt'] ??
+                  video['createdAt'] ??
+                  video['addedAt'] ??
+                  '',
+              'url': videoId != null
+                  ? 'https://www.youtube.com/embed/$videoId?autoplay=0&rel=0&modestbranding=1&controls=1'
+                  : videoUrl ?? '',
+            };
+          }).toList();
+
+          print('API Service: Processed ${videos.length} videos');
+          return videos;
+        } else {
+          print('API Service: Videos list is empty');
+          return [];
+        }
+      } else if (response.statusCode == 404) {
+        print('API Service: Videos endpoint not found (404)');
+        return [];
+      } else {
+        print('API Service: Failed to fetch videos: ${response.statusCode}');
+        return [];
+      }
+    } catch (e) {
+      print('API Service: Error fetching videos: $e');
+      return [];
+    }
   }
 
   Future<List<Map<String, dynamic>>> listExams(
