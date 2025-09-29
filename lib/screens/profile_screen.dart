@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:ui';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
@@ -24,29 +25,193 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _loadPlanDetails();
   }
 
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // Refresh data when screen becomes visible to get updated plan info
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _refreshPlanDetails();
-    });
+  // Glass-styled snackbar helper to unify success/error toasts
+  void _showGlassSnackBar(
+    BuildContext context, {
+    required String message,
+    required Color color,
+    IconData icon = Icons.info_outline,
+  }) {
+    final snack = SnackBar(
+      behavior: SnackBarBehavior.floating,
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      margin: const EdgeInsets.all(12),
+      duration: const Duration(seconds: 2),
+      content: ClipRRect(
+        borderRadius: BorderRadius.circular(14),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.65),
+              border: Border.all(color: color.withOpacity(0.25), width: 1),
+              borderRadius: BorderRadius.circular(14),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 12,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 28,
+                  height: 28,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: LinearGradient(
+                      colors: [color, color.withOpacity(0.8)],
+                    ),
+                  ),
+                  child: Icon(icon, size: 16, color: Colors.white),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    message,
+                    style: const TextStyle(
+                      color: Colors.black,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    textAlign: TextAlign.right,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    ScaffoldMessenger.of(context).showSnackBar(snack);
   }
 
-  Future<void> _refreshPlanDetails() async {
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    try {
-      // Get fresh student data to update plan information
-      final studentData = await authProvider.getFreshStudentData();
-      if (studentData != null && studentData['plan'] != null) {
-        setState(() {
-          _planDetails = studentData['plan'];
-        });
-      }
-    } catch (e) {
-      print('ProfileScreen: Error refreshing plan details: $e');
-    }
+  // Reusable glass-styled container with subtle gradient border
+  Widget _glassContainer({
+    required Widget child,
+    EdgeInsetsGeometry padding = const EdgeInsets.all(16),
+    BorderRadiusGeometry borderRadius =
+        const BorderRadius.all(Radius.circular(20)),
+    List<BoxShadow>? boxShadow,
+    double borderWidth = 1.2,
+  }) {
+    final effectiveShadows = boxShadow ??
+        [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+        ];
+
+    return ClipRRect(
+      borderRadius: borderRadius,
+      child: Stack(
+        children: [
+          // Gradient border layer
+          Container(
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFFBFD8FF), Color(0xFFE6EEFF)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: borderRadius,
+              boxShadow: effectiveShadows,
+            ),
+          ),
+          // Inner glass layer
+          Container(
+            margin: EdgeInsets.all(borderWidth),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.50),
+              borderRadius: BorderRadius.circular(
+                (borderRadius is BorderRadius) ? borderRadius.topLeft.x : 20,
+              ),
+              border: Border.all(
+                color: const Color(0xFF0A84FF).withOpacity(0.12),
+                width: 1,
+              ),
+            ),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+              child: Padding(
+                padding: padding,
+                child: child,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
+
+  // Section heading with decorative underline
+  Widget _sectionHeading(String title,
+      {IconData? icon, Color color = const Color(0xFF1A1A1A)}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (icon != null)
+              Icon(
+                icon,
+                size: 18,
+                color: const Color(0xFF0A84FF),
+              ),
+            if (icon != null) const SizedBox(width: 6),
+            Text(
+              title,
+              style: TextStyle(
+                color: color,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        Container(
+          height: 3,
+          width: 56,
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFF0A84FF), Color(0xFF007AFF)],
+            ),
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // Subtle divider used between info rows
+  Widget _softDivider() {
+    return Container(
+      height: 1,
+      width: double.infinity,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            Colors.black.withOpacity(0.04),
+            Colors.black.withOpacity(0.08),
+            Colors.black.withOpacity(0.04),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(1),
+      ),
+    );
+  }
+
+  // Removed automatic refresh on visibility to avoid repeated requests
+
+  // (Removed unused _refreshPlanDetails to satisfy linter)
 
   Future<void> _loadPlanDetails() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
@@ -86,34 +251,31 @@ class _ProfileScreenState extends State<ProfileScreen> {
         }
 
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('تم تحديث البيانات بنجاح'),
-              backgroundColor: Colors.green,
-              duration: Duration(seconds: 2),
-            ),
+          _showGlassSnackBar(
+            context,
+            message: 'تم تحديث البيانات بنجاح',
+            color: const Color(0xFF22C55E),
+            icon: Icons.check_circle_outline,
           );
         }
       } else {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('فشل في تحديث البيانات'),
-              backgroundColor: Colors.red,
-              duration: Duration(seconds: 3),
-            ),
+          _showGlassSnackBar(
+            context,
+            message: 'فشل في تحديث البيانات',
+            color: const Color(0xFFEF4444),
+            icon: Icons.error_outline,
           );
         }
       }
     } catch (e) {
       print('ProfileScreen: Error refreshing data: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('فشل في تحديث البيانات: $e'),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 3),
-          ),
+        _showGlassSnackBar(
+          context,
+          message: 'فشل في تحديث البيانات: $e',
+          color: const Color(0xFFEF4444),
+          icon: Icons.error_outline,
         );
       }
     }
@@ -215,54 +377,33 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 child: Column(
                   children: [
                     // Profile Header Card with Account Info
-                    Container(
-                      width: double.infinity,
+                    _glassContainer(
                       padding: const EdgeInsets.all(24),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF8F9FA),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                          color: Colors.grey.withOpacity(0.2),
-                          width: 1,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.05),
-                            blurRadius: 20,
-                            offset: const Offset(0, 8),
-                          ),
-                        ],
-                      ),
                       child: Column(
                         children: [
                           // Profile Avatar
                           Container(
-                            width: 90,
-                            height: 90,
-                            decoration: BoxDecoration(
-                              color: Colors.transparent,
-                              borderRadius: BorderRadius.circular(45),
+                            width: 100,
+                            height: 100,
+                            decoration: const BoxDecoration(
+                              shape: BoxShape.circle,
+                              gradient: LinearGradient(
+                                colors: [Color(0xFF0A84FF), Color(0xFF86B6FF)],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
                             ),
                             child: Center(
                               child: Container(
-                                width: 80,
-                                height: 80,
+                                width: 92,
+                                height: 92,
                                 decoration: BoxDecoration(
-                                  color:
-                                      const Color.fromARGB(255, 255, 255, 255),
-                                  borderRadius: BorderRadius.circular(40),
-                                  border: Border.all(
-                                    color:
-                                        const Color.fromARGB(255, 255, 255, 255)
-                                            .withOpacity(0.6),
-                                    width: 2,
-                                  ),
+                                  color: Colors.white,
+                                  shape: BoxShape.circle,
                                   boxShadow: [
                                     BoxShadow(
-                                      color: const Color.fromARGB(
-                                              255, 213, 226, 247)
-                                          .withOpacity(0.5),
-                                      blurRadius: 12,
+                                      color: Colors.black.withOpacity(0.08),
+                                      blurRadius: 10,
                                       offset: const Offset(0, 4),
                                     ),
                                   ],
@@ -273,17 +414,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                       begin: Alignment.topLeft,
                                       end: Alignment.bottomRight,
                                       colors: [
-                                        Color.fromARGB(255, 10, 132, 235),
-                                        Color.fromARGB(255, 10, 132, 235),
+                                        Color(0xFF0A84FF),
+                                        Color(0xFF007AFF)
                                       ],
                                     ).createShader(bounds);
                                   },
                                   blendMode: BlendMode.srcIn,
-                                  child: const Icon(
-                                    Icons.person,
-                                    color: Colors.white,
-                                    size: 36,
-                                  ),
+                                  child: const Icon(Icons.person,
+                                      size: 38, color: Colors.white),
                                 ),
                               ),
                             ),
@@ -296,6 +434,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               color: Color(0xFF1A1A1A),
                               fontSize: 24,
                               fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Container(
+                            height: 4,
+                            width: 64,
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [Color(0xFF0A84FF), Color(0xFF007AFF)],
+                              ),
+                              borderRadius: BorderRadius.circular(4),
                             ),
                           ),
                           const SizedBox(height: 8),
@@ -344,47 +493,39 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ),
                           const SizedBox(height: 20),
                           // Account Information Section
-                          Container(
-                            width: double.infinity,
+                          _glassContainer(
                             padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.5),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: Colors.grey.withOpacity(0.3),
-                                width: 1,
-                              ),
-                            ),
+                            borderRadius: BorderRadius.circular(14),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text(
-                                  'معلومات الحساب',
-                                  style: TextStyle(
-                                    color: Color(0xFF1A1A1A),
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
+                                _sectionHeading('معلومات الحساب',
+                                    icon: Icons.info_outline),
                                 const SizedBox(height: 12),
                                 ProfileInfoRow(
                                   label: '',
                                   value: student['name'],
                                   icon: Icons.person_outline,
                                 ),
-                                const SizedBox(height: 12),
+                                const SizedBox(height: 10),
+                                _softDivider(),
+                                const SizedBox(height: 10),
                                 ProfileInfoRow(
                                   label: '',
                                   value: student['phone'],
                                   icon: Icons.phone_outlined,
                                 ),
-                                const SizedBox(height: 12),
+                                const SizedBox(height: 10),
+                                _softDivider(),
+                                const SizedBox(height: 10),
                                 ProfileInfoRow(
                                   label: '',
                                   value: student['email'],
                                   icon: Icons.email_outlined,
                                 ),
-                                const SizedBox(height: 12),
+                                const SizedBox(height: 10),
+                                _softDivider(),
+                                const SizedBox(height: 10),
                                 ProfileInfoRow(
                                   label: '',
                                   value: expiryDate != null
@@ -393,6 +534,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   icon: Icons.calendar_today_outlined,
                                   valueColor: const Color(0xFFB0B0B0),
                                 ),
+                                const SizedBox(height: 6),
                               ],
                             ),
                           ),
@@ -402,32 +544,68 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     const SizedBox(height: 20),
                     // Countdown Timer
                     if (expiryDate != null)
-                      CountdownTimer(
-                        expiryDate: expiryDate,
-                        onExpired: () {
-                          // Handle expiry if needed
-                        },
+                      _glassContainer(
+                        borderRadius: BorderRadius.circular(16),
+                        padding: const EdgeInsets.all(16),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Text on the right (first child in RTL)
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  Text(
+                                    'الوقت المتبقي على الاشتراك',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    textAlign: TextAlign.right,
+                                    style: const TextStyle(
+                                      color: Color(0xFF1A1A1A),
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  CountdownTimer(
+                                    expiryDate: expiryDate,
+                                    onExpired: () {},
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Container(
+                              width: 40,
+                              height: 40,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                gradient: const LinearGradient(
+                                  colors: [
+                                    Color(0xFF0A84FF),
+                                    Color(0xFF007AFF)
+                                  ],
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.08),
+                                    blurRadius: 10,
+                                    offset: const Offset(0, 4),
+                                  ),
+                                ],
+                              ),
+                              child: const Icon(Icons.timer_outlined,
+                                  color: Colors.white, size: 22),
+                            ),
+                          ],
+                        ),
                       ),
                     const SizedBox(height: 20),
                     // Subscription plan card
-                    Container(
-                      width: double.infinity,
+                    _glassContainer(
                       padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF8F9FA),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: Colors.grey.withOpacity(0.2),
-                          width: 1,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.03),
-                            blurRadius: 12,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
+                      borderRadius: BorderRadius.circular(16),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -440,14 +618,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             ),
                           ),
                           const SizedBox(height: 6),
-                          const Text(
-                            'الخطة الحالية',
-                            style: TextStyle(
-                              color: Color(0xFF1A1A1A),
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
+                          _sectionHeading('الخطة الحالية',
+                              icon: Icons.workspace_premium),
                           const SizedBox(height: 12),
                           if (_isLoadingPlan)
                             const Center(
@@ -483,18 +655,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               ),
                             ],
                           ] else ...[
-                            Text(
+                            const Text(
                               'خطة غير محددة',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 color: Color(0xFF1A1A1A),
                                 fontSize: 16,
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
                             const SizedBox(height: 4),
-                            Text(
+                            const Text(
                               'لا توجد خطة نشطة',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 color: Color(0xFF6B7280),
                                 fontSize: 14,
                               ),
@@ -658,441 +830,636 @@ class _ProfileScreenState extends State<ProfileScreen> {
             backgroundColor: Colors.transparent,
             body: Center(
               child: Dialog(
+                insetPadding: const EdgeInsets.symmetric(horizontal: 16),
+                elevation: 0,
+                backgroundColor: Colors.transparent,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(20),
                 ),
-                child: Container(
-                  constraints: BoxConstraints(
-                    maxHeight: MediaQuery.of(context).viewInsets.bottom > 0
-                        ? MediaQuery.of(context).size.height *
-                            0.6 // Smaller when keyboard is open
-                        : MediaQuery.of(context).size.height *
-                            0.8, // Normal size when keyboard is closed
-                    maxWidth: MediaQuery.of(context).size.width * 0.9,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF8F9FA),
-                    borderRadius: BorderRadius.circular(20),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
-                        blurRadius: 20,
-                        offset: const Offset(0, 10),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(20),
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                    child: Container(
+                      constraints: BoxConstraints(
+                        maxHeight: MediaQuery.of(context).viewInsets.bottom > 0
+                            ? MediaQuery.of(context).size.height *
+                                0.6 // Smaller when keyboard is open
+                            : MediaQuery.of(context).size.height *
+                                0.8, // Normal size when keyboard is closed
+                        maxWidth: MediaQuery.of(context).size.width * 0.9,
                       ),
-                    ],
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Header
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(24),
-                        decoration: const BoxDecoration(
-                          color: Color(0xFF0A84FF),
-                          borderRadius: BorderRadius.only(
-                            topLeft: Radius.circular(20),
-                            topRight: Radius.circular(20),
-                          ),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.45),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: const Color(0xFF0A84FF).withOpacity(0.15),
+                          width: 1,
                         ),
-                        child: const Text(
-                          'تعديل الملف الشخصي',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.08),
+                            blurRadius: 18,
+                            offset: const Offset(0, 8),
                           ),
-                          textAlign: TextAlign.center,
-                        ),
+                        ],
                       ),
-                      // Form Content
-                      Flexible(
-                        child: SingleChildScrollView(
-                          controller: scrollController,
-                          padding: EdgeInsets.all(24).copyWith(
-                            bottom: MediaQuery.of(context).viewInsets.bottom > 0
-                                ? 16
-                                : 24,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // Header (glass style)
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(20),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.35),
+                              borderRadius: const BorderRadius.only(
+                                topLeft: Radius.circular(20),
+                                topRight: Radius.circular(20),
+                              ),
+                              border: Border.all(
+                                color: const Color(0xFF0A84FF).withOpacity(0.2),
+                                width: 1,
+                              ),
+                            ),
+                            child: ShaderMask(
+                              shaderCallback: (bounds) => const LinearGradient(
+                                colors: [
+                                  Color.fromARGB(255, 149, 199, 248),
+                                  Color(0xFF007AFF)
+                                ],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ).createShader(bounds),
+                              blendMode: BlendMode.srcIn,
+                              child: const Text(
+                                'تعديل الملف الشخصي',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
                           ),
-                          child: Column(
-                            children: [
-                              // Name Field
-                              Container(
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(
-                                    color: Colors.grey.withOpacity(0.3),
-                                    width: 1,
-                                  ),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withOpacity(0.05),
-                                      blurRadius: 8,
-                                      offset: const Offset(0, 2),
-                                    ),
-                                  ],
-                                ),
-                                child: TextField(
-                                  controller: nameController,
-                                  decoration: const InputDecoration(
-                                    hintText: 'الاسم',
-                                    hintStyle: TextStyle(
-                                      color: Color(0xFF9CA3AF),
-                                      fontSize: 16,
-                                    ),
-                                    prefixIcon: Icon(
-                                      Icons.person_outline,
-                                      color: Color(0xFF0A84FF),
-                                    ),
-                                    border: InputBorder.none,
-                                    contentPadding: EdgeInsets.symmetric(
-                                      horizontal: 16,
-                                      vertical: 16,
-                                    ),
-                                  ),
-                                  style: const TextStyle(
-                                    color: Color(0xFF1F2937),
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
+                          // Form Content
+                          Flexible(
+                            child: SingleChildScrollView(
+                              controller: scrollController,
+                              padding: EdgeInsets.all(24).copyWith(
+                                bottom:
+                                    MediaQuery.of(context).viewInsets.bottom > 0
+                                        ? 16
+                                        : 24,
                               ),
-                              SizedBox(
-                                  height:
-                                      MediaQuery.of(context).viewInsets.bottom >
+                              child: Column(
+                                children: [
+                                  // Name Field
+                                  Align(
+                                    alignment: Alignment.centerRight,
+                                    child: Text(
+                                      'الاسم',
+                                      style: TextStyle(
+                                        color: const Color(0xFF6B7280),
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Container(
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withOpacity(0.04),
+                                      borderRadius: BorderRadius.circular(14),
+                                      border: Border.all(
+                                          color: Colors.transparent, width: 0),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black.withOpacity(0.04),
+                                          blurRadius: 6,
+                                          offset: const Offset(0, 1),
+                                        ),
+                                      ],
+                                    ),
+                                    child: TextField(
+                                      controller: nameController,
+                                      decoration: InputDecoration(
+                                        hintText: 'الاسم',
+                                        hintStyle: const TextStyle(
+                                          color: Color(0xFF4B5563),
+                                          fontSize: 16,
+                                        ),
+                                        prefixIcon: const Icon(
+                                          Icons.person_outline,
+                                          color: Color(0xFF0A84FF),
+                                        ),
+                                        isDense: true,
+                                        filled: true,
+                                        fillColor:
+                                            Colors.white.withOpacity(0.22),
+                                        enabledBorder: OutlineInputBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(14),
+                                          borderSide: BorderSide(
+                                            color: const Color(0xFF0A84FF)
+                                                .withOpacity(0.45),
+                                            width: 1.2,
+                                          ),
+                                        ),
+                                        focusedBorder: OutlineInputBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(14),
+                                          borderSide: const BorderSide(
+                                            color: Color(0xFF0A84FF),
+                                            width: 1.8,
+                                          ),
+                                        ),
+                                        border: OutlineInputBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(14),
+                                          borderSide: BorderSide(
+                                            color: const Color(0xFF0A84FF)
+                                                .withOpacity(0.45),
+                                          ),
+                                        ),
+                                        contentPadding: EdgeInsets.symmetric(
+                                          horizontal: 16,
+                                          vertical: 16,
+                                        ),
+                                      ),
+                                      style: const TextStyle(
+                                        color: Color(0xFF1F2937),
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ),
+                                  SizedBox(
+                                      height: MediaQuery.of(context)
+                                                  .viewInsets
+                                                  .bottom >
                                               0
                                           ? 12
                                           : 16),
-                              // Phone Field
-                              Container(
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(
-                                    color: Colors.grey.withOpacity(0.3),
-                                    width: 1,
-                                  ),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withOpacity(0.05),
-                                      blurRadius: 8,
-                                      offset: const Offset(0, 2),
-                                    ),
-                                  ],
-                                ),
-                                child: TextField(
-                                  controller: phoneController,
-                                  keyboardType: TextInputType.phone,
-                                  decoration: const InputDecoration(
-                                    hintText: 'رقم الهاتف',
-                                    hintStyle: TextStyle(
-                                      color: Color(0xFF9CA3AF),
-                                      fontSize: 16,
-                                    ),
-                                    prefixIcon: Icon(
-                                      Icons.phone_outlined,
-                                      color: Color(0xFF0A84FF),
-                                    ),
-                                    border: InputBorder.none,
-                                    contentPadding: EdgeInsets.symmetric(
-                                      horizontal: 16,
-                                      vertical: 16,
+                                  // Phone Field
+                                  Align(
+                                    alignment: Alignment.centerRight,
+                                    child: Text(
+                                      'رقم الهاتف',
+                                      style: TextStyle(
+                                        color: const Color(0xFF6B7280),
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
+                                      ),
                                     ),
                                   ),
-                                  style: const TextStyle(
-                                    color: Color(0xFF1F2937),
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w500,
+                                  const SizedBox(height: 6),
+                                  Container(
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withOpacity(0.04),
+                                      borderRadius: BorderRadius.circular(14),
+                                      border: Border.all(
+                                          color: Colors.transparent, width: 0),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black.withOpacity(0.04),
+                                          blurRadius: 6,
+                                          offset: const Offset(0, 1),
+                                        ),
+                                      ],
+                                    ),
+                                    child: TextField(
+                                      controller: phoneController,
+                                      keyboardType: TextInputType.phone,
+                                      decoration: InputDecoration(
+                                        hintText: 'رقم الهاتف',
+                                        hintStyle: const TextStyle(
+                                          color: Color(0xFF4B5563),
+                                          fontSize: 16,
+                                        ),
+                                        prefixIcon: const Icon(
+                                          Icons.phone_outlined,
+                                          color: Color(0xFF0A84FF),
+                                        ),
+                                        isDense: true,
+                                        filled: true,
+                                        fillColor:
+                                            Colors.white.withOpacity(0.22),
+                                        enabledBorder: OutlineInputBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(14),
+                                          borderSide: BorderSide(
+                                            color: const Color(0xFF0A84FF)
+                                                .withOpacity(0.45),
+                                            width: 1.2,
+                                          ),
+                                        ),
+                                        focusedBorder: OutlineInputBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(14),
+                                          borderSide: const BorderSide(
+                                            color: Color(0xFF0A84FF),
+                                            width: 1.8,
+                                          ),
+                                        ),
+                                        border: OutlineInputBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(14),
+                                          borderSide: BorderSide(
+                                            color: const Color(0xFF0A84FF)
+                                                .withOpacity(0.45),
+                                          ),
+                                        ),
+                                        contentPadding: EdgeInsets.symmetric(
+                                          horizontal: 16,
+                                          vertical: 16,
+                                        ),
+                                      ),
+                                      style: const TextStyle(
+                                        color: Color(0xFF1F2937),
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
                                   ),
-                                ),
-                              ),
-                              SizedBox(
-                                  height:
-                                      MediaQuery.of(context).viewInsets.bottom >
+                                  SizedBox(
+                                      height: MediaQuery.of(context)
+                                                  .viewInsets
+                                                  .bottom >
                                               0
                                           ? 12
                                           : 16),
-                              // Email Field
-                              Container(
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(
-                                    color: Colors.grey.withOpacity(0.3),
-                                    width: 1,
-                                  ),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withOpacity(0.05),
-                                      blurRadius: 8,
-                                      offset: const Offset(0, 2),
-                                    ),
-                                  ],
-                                ),
-                                child: TextField(
-                                  controller: emailController,
-                                  keyboardType: TextInputType.emailAddress,
-                                  decoration: const InputDecoration(
-                                    hintText: 'البريد الإلكتروني',
-                                    hintStyle: TextStyle(
-                                      color: Color(0xFF9CA3AF),
-                                      fontSize: 16,
-                                    ),
-                                    prefixIcon: Icon(
-                                      Icons.email_outlined,
-                                      color: Color(0xFF0A84FF),
-                                    ),
-                                    border: InputBorder.none,
-                                    contentPadding: EdgeInsets.symmetric(
-                                      horizontal: 16,
-                                      vertical: 16,
+                                  // Email Field
+                                  Align(
+                                    alignment: Alignment.centerRight,
+                                    child: Text(
+                                      'البريد الإلكتروني',
+                                      style: TextStyle(
+                                        color: const Color(0xFF6B7280),
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
+                                      ),
                                     ),
                                   ),
-                                  style: const TextStyle(
-                                    color: Color(0xFF1F2937),
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w500,
+                                  const SizedBox(height: 6),
+                                  Container(
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withOpacity(0.04),
+                                      borderRadius: BorderRadius.circular(14),
+                                      border: Border.all(
+                                          color: Colors.transparent, width: 0),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black.withOpacity(0.04),
+                                          blurRadius: 6,
+                                          offset: const Offset(0, 1),
+                                        ),
+                                      ],
+                                    ),
+                                    child: TextField(
+                                      controller: emailController,
+                                      keyboardType: TextInputType.emailAddress,
+                                      decoration: InputDecoration(
+                                        hintText: 'البريد الإلكتروني',
+                                        hintStyle: const TextStyle(
+                                          color: Color(0xFF4B5563),
+                                          fontSize: 16,
+                                        ),
+                                        prefixIcon: const Icon(
+                                          Icons.email_outlined,
+                                          color: Color(0xFF0A84FF),
+                                        ),
+                                        isDense: true,
+                                        filled: true,
+                                        fillColor:
+                                            Colors.white.withOpacity(0.22),
+                                        enabledBorder: OutlineInputBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(14),
+                                          borderSide: BorderSide(
+                                            color: const Color(0xFF0A84FF)
+                                                .withOpacity(0.45),
+                                            width: 1.2,
+                                          ),
+                                        ),
+                                        focusedBorder: OutlineInputBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(14),
+                                          borderSide: const BorderSide(
+                                            color: Color(0xFF0A84FF),
+                                            width: 1.8,
+                                          ),
+                                        ),
+                                        border: OutlineInputBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(14),
+                                          borderSide: BorderSide(
+                                            color: const Color(0xFF0A84FF)
+                                                .withOpacity(0.45),
+                                          ),
+                                        ),
+                                        contentPadding: EdgeInsets.symmetric(
+                                          horizontal: 16,
+                                          vertical: 16,
+                                        ),
+                                      ),
+                                      style: const TextStyle(
+                                        color: Color(0xFF1F2937),
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
                                   ),
-                                ),
-                              ),
-                              SizedBox(
-                                  height:
-                                      MediaQuery.of(context).viewInsets.bottom >
+                                  SizedBox(
+                                      height: MediaQuery.of(context)
+                                                  .viewInsets
+                                                  .bottom >
                                               0
                                           ? 12
                                           : 16),
-                              // Password Field
-                              Container(
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(
-                                    color: Colors.grey.withOpacity(0.3),
-                                    width: 1,
-                                  ),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withOpacity(0.05),
-                                      blurRadius: 8,
-                                      offset: const Offset(0, 2),
-                                    ),
-                                  ],
-                                ),
-                                child: TextField(
-                                  controller: passwordController,
-                                  obscureText: true,
-                                  decoration: const InputDecoration(
-                                    hintText: 'كلمة المرور الجديدة (اختياري)',
-                                    hintStyle: TextStyle(
-                                      color: Color(0xFF9CA3AF),
-                                      fontSize: 16,
-                                    ),
-                                    prefixIcon: Icon(
-                                      Icons.lock_outline,
-                                      color: Color(0xFF0A84FF),
-                                    ),
-                                    border: InputBorder.none,
-                                    contentPadding: EdgeInsets.symmetric(
-                                      horizontal: 16,
-                                      vertical: 16,
+                                  // Password Field
+                                  Align(
+                                    alignment: Alignment.centerRight,
+                                    child: Text(
+                                      'كلمة المرور الجديدة (اختياري)',
+                                      style: TextStyle(
+                                        color: const Color(0xFF6B7280),
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
+                                      ),
                                     ),
                                   ),
-                                  style: const TextStyle(
-                                    color: Color(0xFF1F2937),
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w500,
+                                  const SizedBox(height: 6),
+                                  Container(
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withOpacity(0.04),
+                                      borderRadius: BorderRadius.circular(14),
+                                      border: Border.all(
+                                          color: Colors.transparent, width: 0),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black.withOpacity(0.04),
+                                          blurRadius: 6,
+                                          offset: const Offset(0, 1),
+                                        ),
+                                      ],
+                                    ),
+                                    child: TextField(
+                                      controller: passwordController,
+                                      obscureText: true,
+                                      decoration: InputDecoration(
+                                        hintText:
+                                            'كلمة المرور الجديدة (اختياري)',
+                                        hintStyle: const TextStyle(
+                                          color: Color(0xFF4B5563),
+                                          fontSize: 16,
+                                        ),
+                                        prefixIcon: const Icon(
+                                          Icons.lock_outline,
+                                          color: Color(0xFF0A84FF),
+                                        ),
+                                        isDense: true,
+                                        filled: true,
+                                        fillColor:
+                                            Colors.white.withOpacity(0.22),
+                                        enabledBorder: OutlineInputBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(14),
+                                          borderSide: BorderSide(
+                                            color: const Color(0xFF0A84FF)
+                                                .withOpacity(0.45),
+                                            width: 1.2,
+                                          ),
+                                        ),
+                                        focusedBorder: OutlineInputBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(14),
+                                          borderSide: const BorderSide(
+                                            color: Color(0xFF0A84FF),
+                                            width: 1.8,
+                                          ),
+                                        ),
+                                        border: OutlineInputBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(14),
+                                          borderSide: BorderSide(
+                                            color: const Color(0xFF0A84FF)
+                                                .withOpacity(0.45),
+                                          ),
+                                        ),
+                                        contentPadding: EdgeInsets.symmetric(
+                                          horizontal: 16,
+                                          vertical: 16,
+                                        ),
+                                      ),
+                                      style: const TextStyle(
+                                        color: Color(0xFF1F2937),
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
                                   ),
-                                ),
-                              ),
-                              SizedBox(
-                                  height:
-                                      MediaQuery.of(context).viewInsets.bottom >
+                                  SizedBox(
+                                      height: MediaQuery.of(context)
+                                                  .viewInsets
+                                                  .bottom >
                                               0
                                           ? 16
                                           : 24),
-                              // Action Buttons
-                              Row(
-                                children: [
-                                  // Cancel Button
-                                  Expanded(
-                                    child: Container(
-                                      height: 50,
-                                      decoration: BoxDecoration(
-                                        color: Colors.transparent,
-                                        borderRadius: BorderRadius.circular(12),
-                                        border: Border.all(
-                                          color: const Color(0xFFD1D5DB),
-                                          width: 1.5,
-                                        ),
-                                      ),
-                                      child: Material(
-                                        color: Colors.transparent,
-                                        child: InkWell(
-                                          borderRadius:
-                                              BorderRadius.circular(12),
-                                          onTap: () => Navigator.of(ctx).pop(),
-                                          child: const Center(
-                                            child: Text(
-                                              'إلغاء',
-                                              style: TextStyle(
-                                                color: Color(0xFF6B7280),
-                                                fontSize: 16,
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  // Save Button
-                                  Expanded(
-                                    child: Consumer<AuthProvider>(
-                                      builder: (context, authProvider, child) {
-                                        return Container(
+                                  // Action Buttons
+                                  Row(
+                                    children: [
+                                      // Cancel Button
+                                      Expanded(
+                                        child: Container(
                                           height: 50,
                                           decoration: BoxDecoration(
-                                            gradient: const LinearGradient(
-                                              colors: [
-                                                Color(0xFF0A84FF),
-                                                Color(0xFF007AFF)
-                                              ],
-                                              begin: Alignment.topLeft,
-                                              end: Alignment.bottomRight,
-                                            ),
+                                            color: Colors.transparent,
                                             borderRadius:
                                                 BorderRadius.circular(12),
-                                            boxShadow: [
-                                              BoxShadow(
-                                                color: const Color(0xFF0A84FF)
-                                                    .withOpacity(0.3),
-                                                blurRadius: 8,
-                                                offset: const Offset(0, 4),
-                                              ),
-                                            ],
+                                            border: Border.all(
+                                              color: const Color(0xFFD1D5DB),
+                                              width: 1.5,
+                                            ),
                                           ),
                                           child: Material(
                                             color: Colors.transparent,
                                             child: InkWell(
                                               borderRadius:
                                                   BorderRadius.circular(12),
-                                              onTap: authProvider.isLoading
-                                                  ? null
-                                                  : () async {
-                                                      final newName =
-                                                          nameController.text
-                                                              .trim();
-                                                      final newPhone =
-                                                          phoneController.text
-                                                              .trim();
-                                                      final newEmail =
-                                                          emailController.text
-                                                              .trim();
-                                                      final newPassword =
-                                                          passwordController
-                                                              .text
-                                                              .trim();
-
-                                                      if (newName.isEmpty ||
-                                                          newPhone.isEmpty ||
-                                                          newEmail.isEmpty) {
-                                                        ScaffoldMessenger.of(
-                                                                context)
-                                                            .showSnackBar(
-                                                          const SnackBar(
-                                                            content: Text(
-                                                                'جميع الحقول مطلوبة'),
-                                                            backgroundColor:
-                                                                Colors.red,
-                                                            behavior:
-                                                                SnackBarBehavior
-                                                                    .floating,
-                                                          ),
-                                                        );
-                                                        return;
-                                                      }
-
-                                                      final success =
-                                                          await authProvider
-                                                              .updateProfile(
-                                                        name: newName,
-                                                        phone: newPhone,
-                                                        email: newEmail,
-                                                        password: newPassword
-                                                                .isNotEmpty
-                                                            ? newPassword
-                                                            : null,
-                                                      );
-
-                                                      if (success) {
-                                                        Navigator.of(ctx).pop();
-                                                        ScaffoldMessenger.of(
-                                                                context)
-                                                            .showSnackBar(
-                                                          const SnackBar(
-                                                            content: Text(
-                                                                'تم حفظ التعديلات بنجاح'),
-                                                            backgroundColor:
-                                                                Colors.green,
-                                                            behavior:
-                                                                SnackBarBehavior
-                                                                    .floating,
-                                                          ),
-                                                        );
-                                                      } else {
-                                                        ScaffoldMessenger.of(
-                                                                context)
-                                                            .showSnackBar(
-                                                          SnackBar(
-                                                            content: Text(
-                                                                authProvider
-                                                                        .error ??
-                                                                    'فشل في تحديث الملف الشخصي'),
-                                                            backgroundColor:
-                                                                Colors.red,
-                                                            behavior:
-                                                                SnackBarBehavior
-                                                                    .floating,
-                                                          ),
-                                                        );
-                                                      }
-                                                    },
-                                              child: Center(
-                                                child: authProvider.isLoading
-                                                    ? const SizedBox(
-                                                        width: 20,
-                                                        height: 20,
-                                                        child:
-                                                            CircularProgressIndicator(
-                                                          color: Colors.white,
-                                                          strokeWidth: 2,
-                                                        ),
-                                                      )
-                                                    : const Text(
-                                                        'حفظ',
-                                                        style: TextStyle(
-                                                          color: Colors.white,
-                                                          fontSize: 16,
-                                                          fontWeight:
-                                                              FontWeight.w600,
-                                                        ),
-                                                      ),
+                                              onTap: () =>
+                                                  Navigator.of(ctx).pop(),
+                                              child: const Center(
+                                                child: Text(
+                                                  'إلغاء',
+                                                  style: TextStyle(
+                                                    color: Color(0xFF6B7280),
+                                                    fontSize: 16,
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                                ),
                                               ),
                                             ),
                                           ),
-                                        );
-                                      },
-                                    ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      // Save Button
+                                      Expanded(
+                                        child: Consumer<AuthProvider>(
+                                          builder:
+                                              (context, authProvider, child) {
+                                            return Container(
+                                              height: 50,
+                                              decoration: BoxDecoration(
+                                                color: Colors.white
+                                                    .withOpacity(0.25),
+                                                borderRadius:
+                                                    BorderRadius.circular(12),
+                                                border: Border.all(
+                                                    color:
+                                                        const Color(0xFF0A84FF),
+                                                    width: 1.5),
+                                              ),
+                                              child: Material(
+                                                color: Colors.transparent,
+                                                child: InkWell(
+                                                  borderRadius:
+                                                      BorderRadius.circular(12),
+                                                  onTap: authProvider.isLoading
+                                                      ? null
+                                                      : () async {
+                                                          final newName =
+                                                              nameController
+                                                                  .text
+                                                                  .trim();
+                                                          final newPhone =
+                                                              phoneController
+                                                                  .text
+                                                                  .trim();
+                                                          final newEmail =
+                                                              emailController
+                                                                  .text
+                                                                  .trim();
+                                                          final newPassword =
+                                                              passwordController
+                                                                  .text
+                                                                  .trim();
+
+                                                          if (newName.isEmpty ||
+                                                              newPhone
+                                                                  .isEmpty ||
+                                                              newEmail
+                                                                  .isEmpty) {
+                                                            _showGlassSnackBar(
+                                                              context,
+                                                              message:
+                                                                  'جميع الحقول مطلوبة',
+                                                              color: const Color(
+                                                                  0xFFEF4444),
+                                                              icon: Icons
+                                                                  .error_outline,
+                                                            );
+                                                            return;
+                                                          }
+
+                                                          final success =
+                                                              await authProvider
+                                                                  .updateProfile(
+                                                            name: newName,
+                                                            phone: newPhone,
+                                                            email: newEmail,
+                                                            password: newPassword
+                                                                    .isNotEmpty
+                                                                ? newPassword
+                                                                : null,
+                                                          );
+
+                                                          if (success) {
+                                                            Navigator.of(ctx)
+                                                                .pop();
+                                                            _showGlassSnackBar(
+                                                              context,
+                                                              message:
+                                                                  'تم حفظ التعديلات بنجاح',
+                                                              color: const Color(
+                                                                  0xFF22C55E),
+                                                              icon: Icons
+                                                                  .check_circle_outline,
+                                                            );
+                                                          } else {
+                                                            _showGlassSnackBar(
+                                                              context,
+                                                              message: authProvider
+                                                                      .error ??
+                                                                  'فشل في تحديث الملف الشخصي',
+                                                              color: const Color(
+                                                                  0xFFEF4444),
+                                                              icon: Icons
+                                                                  .error_outline,
+                                                            );
+                                                          }
+                                                        },
+                                                  child: Center(
+                                                    child: authProvider
+                                                            .isLoading
+                                                        ? const SizedBox(
+                                                            width: 20,
+                                                            height: 20,
+                                                            child:
+                                                                CircularProgressIndicator(
+                                                              color: Color(
+                                                                  0xFF0A84FF),
+                                                              strokeWidth: 2,
+                                                            ),
+                                                          )
+                                                        : ShaderMask(
+                                                            shaderCallback:
+                                                                (bounds) =>
+                                                                    const LinearGradient(
+                                                              colors: [
+                                                                Color(
+                                                                    0xFF0A84FF),
+                                                                Color(
+                                                                    0xFF007AFF)
+                                                              ],
+                                                              begin: Alignment
+                                                                  .topLeft,
+                                                              end: Alignment
+                                                                  .bottomRight,
+                                                            ).createShader(
+                                                                        bounds),
+                                                            blendMode:
+                                                                BlendMode.srcIn,
+                                                            child: const Text(
+                                                              'حفظ',
+                                                              style: TextStyle(
+                                                                color: Colors
+                                                                    .white,
+                                                                fontSize: 16,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .w600,
+                                                              ),
+                                                            ),
+                                                          ),
+                                                  ),
+                                                ),
+                                              ),
+                                            );
+                                          },
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ],
                               ),
-                            ],
+                            ),
                           ),
-                        ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
                 ),
               ),

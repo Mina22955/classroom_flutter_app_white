@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:ui';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:file_picker/file_picker.dart';
@@ -37,6 +38,7 @@ class _ClassroomScreenState extends State<ClassroomScreen> {
   bool _isLoadingNotes = false;
   bool _isLoadingFiles = false;
   bool _isLoadingTasks = false;
+  bool _videosLoaded = false;
   bool _notesLoaded = false; // Track if notes have been loaded
   bool _filesLoaded = false; // Track if files have been loaded
   bool _tasksLoaded = false; // Track if tasks have been loaded
@@ -47,6 +49,44 @@ class _ClassroomScreenState extends State<ClassroomScreen> {
   final Map<String, bool> _expandedStates = {};
   // Cache for submission status per taskId to avoid repeated calls
   final Map<String, bool> _taskSubmissionStatus = {};
+
+  // Glass card helper used by files, videos, and exams
+  Widget _glassCard({
+    required bool isExpanded,
+    required Widget child,
+    bool enableBlur = true,
+  }) {
+    final content = Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.45),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: isExpanded
+              ? const Color(0xFF0A84FF).withOpacity(0.25)
+              : Colors.white.withOpacity(0.15),
+          width: isExpanded ? 1.5 : 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: child,
+    );
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(20),
+      child: enableBlur
+          ? BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+              child: content,
+            )
+          : content,
+    );
+  }
 
   @override
   void dispose() {
@@ -59,13 +99,13 @@ class _ClassroomScreenState extends State<ClassroomScreen> {
     super.initState();
     // Load data asynchronously without blocking the UI
     Future.microtask(() {
-      _loadVideos();
       _loadNotes(); // Load notes when entering the class
     });
   }
 
   Future<void> _loadVideos() async {
-    setState(() => _isLoadingVideos = true);
+    if (_isLoadingVideos) return;
+    if (mounted) setState(() => _isLoadingVideos = true);
     try {
       // Get token from AuthProvider
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
@@ -84,13 +124,18 @@ class _ClassroomScreenState extends State<ClassroomScreen> {
       print('=== VIDEOS LOADED ===');
       print('Videos count: ${videos.length}');
       print('Videos data: $videos');
-      setState(() => _videos = videos);
+      if (mounted) {
+        setState(() {
+          _videos = videos;
+          _videosLoaded = true;
+        });
+      }
     } catch (e) {
       print('=== ERROR LOADING VIDEOS ===');
       print('Error: $e');
       print('Stack trace: ${StackTrace.current}');
     } finally {
-      setState(() => _isLoadingVideos = false);
+      if (mounted) setState(() => _isLoadingVideos = false);
     }
   }
 
@@ -521,17 +566,9 @@ class _ClassroomScreenState extends State<ClassroomScreen> {
                   splashColor: Colors.black12,
                   hoverColor: Colors.black12,
                 ),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: isExpanded
-                          ? const Color(0xFF0A84FF)
-                          : Colors.black.withOpacity(0.08),
-                      width: isExpanded ? 2 : 1,
-                    ),
-                  ),
+                child: _glassCard(
+                  isExpanded: isExpanded,
+                  enableBlur: false,
                   child: ExpansionTile(
                     collapsedIconColor: const Color(0xFF0A84FF),
                     iconColor: const Color(0xFF0A84FF),
@@ -803,17 +840,9 @@ class _ClassroomScreenState extends State<ClassroomScreen> {
                 splashColor: Colors.black12,
                 hoverColor: Colors.black12,
               ),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: isExpanded
-                        ? const Color(0xFF0A84FF)
-                        : Colors.black.withOpacity(0.08),
-                    width: isExpanded ? 2 : 1,
-                  ),
-                ),
+              child: _glassCard(
+                isExpanded: isExpanded,
+                enableBlur: false,
                 child: ExpansionTile(
                   collapsedIconColor: const Color(0xFF0A84FF),
                   iconColor: const Color(0xFF0A84FF),
@@ -1199,65 +1228,114 @@ class _ClassroomScreenState extends State<ClassroomScreen> {
             ],
           ),
         ),
-        bottomNavigationBar: Directionality(
-          textDirection: TextDirection.rtl,
-          child: Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border(
-                top: BorderSide(
-                    color: Colors.black.withOpacity(0.08), width: 0.5),
-              ),
-            ),
-            child: SafeArea(
-              child: BottomNavigationBar(
-                backgroundColor: Colors.white,
-                elevation: 0,
-                selectedItemColor: const Color(0xFF0A84FF),
-                unselectedItemColor: const Color(0xFF6B7280),
-                currentIndex: _currentIndex,
-                onTap: (i) {
-                  setState(() => _currentIndex = i);
-                  if (i == 0 && !_notesLoaded) {
-                    // Notes tab - only load if not already loaded
-                    _loadNotes();
-                  } else if (i == 1 && !_filesLoaded) {
-                    // Files tab - only load if not already loaded
-                    _loadFiles();
-                  } else if (i == 2) {
-                    // Videos tab
-                    _loadVideos();
-                  } else if (i == 3 && !_tasksLoaded) {
-                    // Tasks/Exams tab - only load if not already loaded
-                    _loadTasks();
-                  }
-                },
-                type: BottomNavigationBarType.fixed,
-                items: const [
-                  BottomNavigationBarItem(
-                    icon: Icon(Icons.sticky_note_2_outlined),
-                    activeIcon: Icon(Icons.sticky_note_2),
-                    label: 'الملاحظات',
+        bottomNavigationBar: _buildGlassBottomBar(),
+      ),
+    );
+  }
+
+  Widget _buildGlassBottomBar() {
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(26),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+              child: Container(
+                height: 72,
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.9),
+                  borderRadius: BorderRadius.circular(26),
+                  border: Border.all(
+                    color: Colors.white.withOpacity(0.6),
+                    width: 1,
                   ),
-                  BottomNavigationBarItem(
-                    icon: Icon(Icons.folder_outlined),
-                    activeIcon: Icon(Icons.folder),
-                    label: 'الملفات',
-                  ),
-                  BottomNavigationBarItem(
-                    icon: Icon(Icons.video_collection_outlined),
-                    activeIcon: Icon(Icons.video_collection),
-                    label: 'الفيديوهات',
-                  ),
-                  BottomNavigationBarItem(
-                    icon: Icon(Icons.assignment_outlined),
-                    activeIcon: Icon(Icons.assignment),
-                    label: 'الامتحانات',
-                  ),
-                ],
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.08),
+                      blurRadius: 20,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    _navItem(0, Icons.sticky_note_2_outlined,
+                        Icons.sticky_note_2, 'الملاحظات'),
+                    _navItem(1, Icons.folder_outlined, Icons.folder, 'الملفات'),
+                    _navItem(2, Icons.video_collection_outlined,
+                        Icons.video_collection, 'الفيديوهات'),
+                    _navItem(3, Icons.assignment_outlined, Icons.assignment,
+                        'الامتحانات'),
+                  ],
+                ),
               ),
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _navItem(int index, IconData icon, IconData activeIcon, String label) {
+    final bool selected = _currentIndex == index;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () {
+        setState(() => _currentIndex = index);
+        if (index == 0 && !_notesLoaded) {
+          _loadNotes();
+        } else if (index == 1 && !_filesLoaded) {
+          _loadFiles();
+        } else if (index == 2 && !_videosLoaded) {
+          _loadVideos();
+        } else if (index == 3 && !_tasksLoaded) {
+          _loadTasks();
+        }
+      },
+      child: SizedBox(
+        width: 80,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              width: selected ? 44 : 36,
+              height: selected ? 44 : 36,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: selected
+                    ? const LinearGradient(
+                        colors: [Color(0xFF0A84FF), Color(0xFF007AFF)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      )
+                    : null,
+                color: selected ? null : Colors.transparent,
+              ),
+              child: Icon(
+                selected ? activeIcon : icon,
+                color: selected ? Colors.white : const Color(0xFF6B7280),
+                size: selected ? 22 : 20,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                color: selected
+                    ? const Color(0xFF0A84FF)
+                    : const Color(0xFF6B7280),
+              ),
+              overflow: TextOverflow.ellipsis,
+            )
+          ],
         ),
       ),
     );
@@ -1273,17 +1351,9 @@ class _ClassroomScreenState extends State<ClassroomScreen> {
         splashColor: Colors.black12,
         hoverColor: Colors.black12,
       ),
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: isExpanded
-              ? Border.all(
-                  color: const Color(0xFF0A84FF),
-                  width: 2,
-                )
-              : Border.all(color: Colors.black.withOpacity(0.08), width: 1),
-        ),
+      child: _glassCard(
+        isExpanded: isExpanded,
+        enableBlur: false, // Avoid blur behind WebView to prevent GPU crashes
         child: ExpansionTile(
           collapsedIconColor: const Color(0xFF0A84FF),
           iconColor: const Color(0xFF0A84FF),
@@ -1315,7 +1385,7 @@ class _ClassroomScreenState extends State<ClassroomScreen> {
                         const TextStyle(color: Color(0xFF6B7280), fontSize: 13),
                   ),
                 if (video['uploadedAt'] != null &&
-                    video['uploadedAt'].isNotEmpty) ...[
+                    video['uploadedAt'].toString().isNotEmpty) ...[
                   const SizedBox(height: 4),
                   Row(
                     mainAxisSize: MainAxisSize.min,
@@ -1327,7 +1397,7 @@ class _ClassroomScreenState extends State<ClassroomScreen> {
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        _formatUploadDate(video['uploadedAt']!),
+                        _formatDateDdMmYyyy(video['uploadedAt']),
                         style: const TextStyle(
                           color: Color(0xFF6B7280),
                           fontSize: 12,
@@ -1341,27 +1411,37 @@ class _ClassroomScreenState extends State<ClassroomScreen> {
             ),
           ),
           children: [
-            // YouTube player widget
+            // YouTube player widget wrapped with glass styling container
             Container(
               height: 200,
               decoration: BoxDecoration(
-                color: const Color(0xFFF2F2F7),
-                borderRadius: BorderRadius.circular(12),
+                color: Colors.white.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(16),
                 border:
-                    Border.all(color: Colors.black.withOpacity(0.08), width: 1),
+                    Border.all(color: Colors.white.withOpacity(0.2), width: 1),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
               ),
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(16),
                 child: Stack(
                   children: [
-                    // YouTube player
-                    YoutubePlayerWidget(
-                      videoId: video['videoId'] ?? '',
-                      title: video['title'] ?? 'فيديو',
-                      autoPlay: false,
-                      showControls: true,
-                      aspectRatio: 16 / 9,
-                    ),
+                    // Build player only when expanded, to avoid recreating on collapse
+                    if (isExpanded)
+                      YoutubePlayerWidget(
+                        videoId: video['videoId'] ?? '',
+                        title: video['title'] ?? 'فيديو',
+                        autoPlay: false,
+                        showControls: true,
+                        aspectRatio: 16 / 9,
+                      )
+                    else
+                      Container(color: Colors.white.withOpacity(0.1)),
                     // Fullscreen button overlay
                     Positioned(
                       top: 8,
@@ -1393,23 +1473,27 @@ class _ClassroomScreenState extends State<ClassroomScreen> {
     );
   }
 
-  String _formatUploadDate(String isoDate) {
+  String _formatDateDdMmYyyy(dynamic value) {
     try {
-      final date = DateTime.parse(isoDate);
-      final now = DateTime.now();
-      final difference = now.difference(date);
-
-      if (difference.inDays > 0) {
-        return 'منذ ${difference.inDays} يوم';
-      } else if (difference.inHours > 0) {
-        return 'منذ ${difference.inHours} ساعة';
-      } else if (difference.inMinutes > 0) {
-        return 'منذ ${difference.inMinutes} دقيقة';
+      if (value == null) return 'غير محدد';
+      DateTime d;
+      if (value is String) {
+        d = DateTime.parse(value);
+      } else if (value is int) {
+        d = value > 2000000000
+            ? DateTime.fromMillisecondsSinceEpoch(value)
+            : DateTime.fromMillisecondsSinceEpoch(value * 1000);
+      } else if (value is double) {
+        final v = value.toInt();
+        d = v > 2000000000
+            ? DateTime.fromMillisecondsSinceEpoch(v)
+            : DateTime.fromMillisecondsSinceEpoch(v * 1000);
       } else {
-        return 'الآن';
+        return 'غير محدد';
       }
-    } catch (e) {
-      return 'تاريخ غير محدد';
+      return '${d.day.toString().padLeft(2, '0')}-${d.month.toString().padLeft(2, '0')}-${d.year}';
+    } catch (_) {
+      return 'غير محدد';
     }
   }
 

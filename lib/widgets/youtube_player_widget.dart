@@ -24,6 +24,7 @@ class YoutubePlayerWidget extends StatefulWidget {
 class _YoutubePlayerWidgetState extends State<YoutubePlayerWidget> {
   late WebViewController _controller;
   bool _isLoading = true;
+  bool _hasError = false;
 
   @override
   void initState() {
@@ -34,12 +35,43 @@ class _YoutubePlayerWidgetState extends State<YoutubePlayerWidget> {
   void _initializeWebView() {
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setBackgroundColor(const Color(0x00000000))
       ..setNavigationDelegate(
         NavigationDelegate(
-          onPageFinished: (String url) {
-            setState(() {
-              _isLoading = false;
-            });
+          onPageStarted: (String url) {
+            if (mounted) {
+              setState(() {
+                _isLoading = true;
+                _hasError = false;
+              });
+            }
+          },
+          onPageFinished: (String url) async {
+            // Hide share/watch overlays when possible
+            try {
+              await _controller.runJavaScript('''
+                try {
+                  const style = document.createElement('style');
+                  style.textContent = `
+                    .ytp-share-button, .ytp-watch-on-youtube, a.ytp-youtube-button, .ytp-chrome-top-buttons { display: none !important; }
+                  `;
+                  document.head.appendChild(style);
+                } catch (e) {}
+              ''');
+            } catch (_) {}
+            if (mounted) {
+              setState(() {
+                _isLoading = false;
+              });
+            }
+          },
+          onWebResourceError: (WebResourceError error) {
+            if (mounted) {
+              setState(() {
+                _isLoading = false;
+                _hasError = true;
+              });
+            }
           },
         ),
       )
@@ -47,7 +79,18 @@ class _YoutubePlayerWidgetState extends State<YoutubePlayerWidget> {
   }
 
   String _getEmbedUrl() {
-    return 'https://www.youtube.com/embed/${widget.videoId}?autoplay=${widget.autoPlay ? 1 : 0}&rel=0&modestbranding=1&controls=${widget.showControls ? 1 : 0}';
+    final params = <String, String>{
+      'autoplay': widget.autoPlay ? '1' : '0',
+      'rel': '0',
+      'modestbranding': '1',
+      'controls': widget.showControls ? '1' : '0',
+      'iv_load_policy': '3',
+      'playsinline': '1',
+      'enablejsapi': '1',
+      'origin': 'https://www.youtube-nocookie.com',
+    };
+    final query = params.entries.map((e) => '${e.key}=${e.value}').join('&');
+    return 'https://www.youtube-nocookie.com/embed/${widget.videoId}?$query';
   }
 
   @override
@@ -105,6 +148,33 @@ class _YoutubePlayerWidgetState extends State<YoutubePlayerWidget> {
                 color: Colors.grey[200],
                 child: const Center(
                   child: CircularProgressIndicator(),
+                ),
+              ),
+            if (_hasError)
+              Container(
+                color: Colors.grey[200],
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.error_outline,
+                          size: 48, color: Colors.red),
+                      const SizedBox(height: 8),
+                      const Text('خطأ في تحميل الفيديو',
+                          style: TextStyle(color: Colors.red)),
+                      const SizedBox(height: 8),
+                      TextButton(
+                        onPressed: () {
+                          setState(() {
+                            _hasError = false;
+                            _isLoading = true;
+                          });
+                          _initializeWebView();
+                        },
+                        child: const Text('إعادة المحاولة'),
+                      ),
+                    ],
+                  ),
                 ),
               ),
           ],
