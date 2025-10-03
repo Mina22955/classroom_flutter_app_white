@@ -22,60 +22,67 @@ class YoutubePlayerWidget extends StatefulWidget {
 }
 
 class _YoutubePlayerWidgetState extends State<YoutubePlayerWidget> {
-  late WebViewController _controller;
+  WebViewController? _controller;
   bool _isLoading = true;
   bool _hasError = false;
+  int _retryCount = 0;
+  static const int _maxRetries = 3;
 
   @override
   void initState() {
     super.initState();
-    _initializeWebView();
+    // Delay a frame to avoid ExpansionTile animation race conditions
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initializeWebView();
+    });
   }
 
   void _initializeWebView() {
-    _controller = WebViewController()
-      ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setBackgroundColor(const Color(0x00000000))
-      ..setNavigationDelegate(
-        NavigationDelegate(
-          onPageStarted: (String url) {
-            if (mounted) {
-              setState(() {
-                _isLoading = true;
-                _hasError = false;
-              });
-            }
-          },
-          onPageFinished: (String url) async {
-            // Hide share/watch overlays when possible
-            try {
-              await _controller.runJavaScript('''
-                try {
-                  const style = document.createElement('style');
-                  style.textContent = `
-                    .ytp-share-button, .ytp-watch-on-youtube, a.ytp-youtube-button, .ytp-chrome-top-buttons { display: none !important; }
-                  `;
-                  document.head.appendChild(style);
-                } catch (e) {}
-              ''');
-            } catch (_) {}
-            if (mounted) {
-              setState(() {
-                _isLoading = false;
-              });
-            }
-          },
-          onWebResourceError: (WebResourceError error) {
-            if (mounted) {
-              setState(() {
-                _isLoading = false;
-                _hasError = true;
-              });
-            }
-          },
-        ),
-      )
-      ..loadRequest(Uri.parse(_getEmbedUrl()));
+    final controller = WebViewController();
+    controller.setJavaScriptMode(JavaScriptMode.unrestricted);
+    controller.setBackgroundColor(const Color(0x00000000));
+    controller.setNavigationDelegate(
+      NavigationDelegate(
+        onPageStarted: (String url) {
+          if (mounted) {
+            setState(() {
+              _isLoading = true;
+              _hasError = false;
+            });
+          }
+        },
+        onPageFinished: (String url) async {
+          if (mounted) {
+            setState(() {
+              _isLoading = false;
+            });
+          }
+        },
+        onNavigationRequest: (NavigationRequest request) {
+          // Allow YouTube and Google video domains, block others from breaking out
+          final url = request.url;
+          if (url.contains('youtube.com') ||
+              url.contains('youtu.be') ||
+              url.contains('googlevideo.com')) {
+            return NavigationDecision.navigate;
+          }
+          return NavigationDecision.prevent;
+        },
+        onWebResourceError: (WebResourceError error) {
+          if (mounted) {
+            setState(() {
+              _isLoading = false;
+              _hasError = true;
+            });
+          }
+          _retryLoad();
+        },
+      ),
+    );
+    controller.loadHtmlString(_getEmbedHtml());
+
+    _controller = controller;
+    if (mounted) setState(() {});
   }
 
   String _getEmbedUrl() {
@@ -87,10 +94,63 @@ class _YoutubePlayerWidgetState extends State<YoutubePlayerWidget> {
       'iv_load_policy': '3',
       'playsinline': '1',
       'enablejsapi': '1',
-      'origin': 'https://www.youtube-nocookie.com',
+      'origin': _retryCount >= _maxRetries - 1
+          ? 'https://www.youtube.com'
+          : 'https://www.youtube-nocookie.com',
+      // Cache buster to avoid stale config state
+      'cb': DateTime.now().millisecondsSinceEpoch.toString(),
     };
     final query = params.entries.map((e) => '${e.key}=${e.value}').join('&');
-    return 'https://www.youtube-nocookie.com/embed/${widget.videoId}?$query';
+    final base = _retryCount >= _maxRetries - 1
+        ? 'https://www.youtube.com'
+        : 'https://www.youtube-nocookie.com';
+    return '$base/embed/${widget.videoId}?$query';
+  }
+
+  String _getEmbedHtml() {
+    final autoplay = widget.autoPlay ? '1' : '0';
+    final controls = widget.showControls ? '1' : '0';
+    final cacheBuster = DateTime.now().millisecondsSinceEpoch;
+    // Use standard youtube domain to reduce config errors on some devices
+    final src =
+        'https://www.youtube.com/embed/${widget.videoId}?autoplay=$autoplay&rel=0&modestbranding=1&controls=$controls&playsinline=1&iv_load_policy=3&enablejsapi=1&cb=$cacheBuster';
+    final allow =
+        'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen';
+    return '''
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+    <style>
+      html, body { margin:0; padding:0; background: transparent; height: 100%; }
+      .wrap { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; }
+      .wrap iframe { width: 100%; height: 100%; border: 0; }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <iframe src="$src" allow="$allow" allowfullscreen></iframe>
+    </div>
+  </body>
+  </html>
+''';
+  }
+
+  Future<void> _retryLoad() async {
+    if (_retryCount >= _maxRetries) return;
+    _retryCount += 1;
+    // small backoff
+    await Future.delayed(Duration(milliseconds: 200 * _retryCount));
+    if (!mounted) return;
+    try {
+      await _controller?.loadRequest(Uri.parse(_getEmbedUrl()));
+      if (mounted) {
+        setState(() {
+          _hasError = false;
+          _isLoading = true;
+        });
+      }
+    } catch (_) {}
   }
 
   @override
@@ -139,10 +199,13 @@ class _YoutubePlayerWidgetState extends State<YoutubePlayerWidget> {
         borderRadius: BorderRadius.circular(12),
         child: Stack(
           children: [
-            AspectRatio(
-              aspectRatio: widget.aspectRatio,
-              child: WebViewWidget(controller: _controller),
-            ),
+            if (_controller != null)
+              AspectRatio(
+                aspectRatio: widget.aspectRatio,
+                child: WebViewWidget(controller: _controller!),
+              )
+            else
+              Container(color: Colors.grey[200]),
             if (_isLoading)
               Container(
                 color: Colors.grey[200],
@@ -168,6 +231,7 @@ class _YoutubePlayerWidgetState extends State<YoutubePlayerWidget> {
                           setState(() {
                             _hasError = false;
                             _isLoading = true;
+                            _retryCount = 0;
                           });
                           _initializeWebView();
                         },

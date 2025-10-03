@@ -35,14 +35,15 @@ class NoteCard extends StatelessWidget {
                   const Color(0xFFF8FAFF), // Lighter, more readable background
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: const Color(0xFF0A84FF).withOpacity(0.25),
+                color: Colors.black.withOpacity(0.10),
                 width: 1.2,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFF0A84FF).withOpacity(0.08),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
+                  color: Colors.black.withOpacity(0.12),
+                  blurRadius: 18,
+                  spreadRadius: 0.5,
+                  offset: const Offset(0, 8),
                 ),
               ],
             ),

@@ -85,6 +85,24 @@ class _SplashScreenState extends State<SplashScreen>
 
   @override
   Widget build(BuildContext context) {
+    final Size screenSize = MediaQuery.of(context).size;
+    final double shortestSide = screenSize.shortestSide;
+    // Scale between 0.8 (very small phones) and 1.1 (large phones)
+    final double uiScale = shortestSide / 360.0;
+    final double scale = uiScale.clamp(0.8, 1.1);
+
+    final double logoSize = 120 * scale;
+    final double logoMoveUp = -36.0 * scale;
+    final double bigBlob = 160 * scale;
+    final double smallBlob = 120 * scale;
+    final double iconLarge = 40 * scale;
+    final double iconSmall = 28 * scale;
+    final double textFontSize = (40 * scale).clamp(24.0, 42.0);
+    final double pad24 = 24 * scale;
+    final double pad30 = 30 * scale;
+    final double pad60 = 60 * scale;
+    final double pad90 = 90 * scale;
+    final double pad120 = 120 * scale;
     return Scaffold(
       backgroundColor: Colors.white,
       body: Stack(
@@ -102,26 +120,28 @@ class _SplashScreenState extends State<SplashScreen>
           ),
           // Soft blobs and caps
           Positioned(
-            left: -30,
-            top: 60,
-            child: _blob(120, const Color(0xFF0A84FF).withOpacity(0.20)),
+            left: -30 * scale,
+            top: pad60,
+            child: _blob(smallBlob, const Color(0xFF0A84FF).withOpacity(0.20)),
           ),
           Positioned(
-            right: -40,
-            bottom: -20,
-            child: _blob(160, const Color(0xFF007AFF).withOpacity(0.18)),
+            right: -40 * scale,
+            bottom: -20 * scale,
+            child: _blob(bigBlob, const Color(0xFF007AFF).withOpacity(0.18)),
           ),
           Positioned(
-            right: 24,
-            top: 90,
+            right: pad24,
+            top: pad90,
             child: Icon(Icons.school,
-                color: const Color(0xFF0A84FF).withOpacity(0.14), size: 40),
+                color: const Color(0xFF0A84FF).withOpacity(0.14),
+                size: iconLarge),
           ),
           Positioned(
-            left: 30,
-            bottom: 120,
+            left: pad30,
+            bottom: pad120,
             child: Icon(Icons.school,
-                color: const Color(0xFF0A84FF).withOpacity(0.14), size: 28),
+                color: const Color(0xFF0A84FF).withOpacity(0.14),
+                size: iconSmall),
           ),
           // Content
           Center(
@@ -133,12 +153,16 @@ class _SplashScreenState extends State<SplashScreen>
                   animation: _logoController,
                   builder: (context, child) {
                     return Transform.translate(
-                      offset: Offset(0, _logoMoveAnimation.value),
+                      offset: Offset(
+                          0,
+                          _logoMoveAnimation.value * scale +
+                              logoMoveUp -
+                              (-36.0 * scale)),
                       child: Transform.scale(
                         scale: _logoAnimation.value,
                         child: Container(
-                          width: 120,
-                          height: 120,
+                          width: logoSize,
+                          height: logoSize,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             color: const Color(0xFF0A84FF),
@@ -168,7 +192,7 @@ class _SplashScreenState extends State<SplashScreen>
                 AnimatedBuilder(
                   animation: _textAnimation,
                   builder: (context, child) {
-                    return _buildHandwritingText();
+                    return _buildHandwritingText(textFontSize);
                   },
                 ),
               ],
@@ -193,7 +217,7 @@ class _SplashScreenState extends State<SplashScreen>
     );
   }
 
-  Widget _buildHandwritingText() {
+  Widget _buildHandwritingText(double fontSize) {
     const text = "Aamana classroom";
 
     // Use a connected script font and reveal the text smoothly from left to right
@@ -204,9 +228,9 @@ class _SplashScreenState extends State<SplashScreen>
         child: Text(
           text,
           textDirection: TextDirection.ltr,
-          style: const TextStyle(
-            fontSize: 40,
-            color: Color(0xFF0A84FF),
+          style: TextStyle(
+            fontSize: fontSize,
+            color: const Color(0xFF0A84FF),
             fontFamily: 'WindSong',
             fontWeight: FontWeight.w500,
             letterSpacing: 0.0,

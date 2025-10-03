@@ -69,8 +69,16 @@ class _MyAppState extends State<MyApp> {
             theme: appTheme,
             routerConfig: AppRouter.router,
             builder: (context, child) {
-              // Direct app display without any loading screen
-              return child ?? const SizedBox.shrink();
+              // Global responsiveness: clamp system text scaling and adapt slightly to screen size
+              final mq = MediaQuery.of(context);
+              final double shortest = mq.size.shortestSide;
+              final double uiScale = (shortest / 360.0).clamp(0.85, 1.15);
+              final double textScale =
+                  (mq.textScaleFactor * uiScale).clamp(0.9, 1.2);
+              return MediaQuery(
+                data: mq.copyWith(textScaleFactor: textScale),
+                child: child ?? const SizedBox.shrink(),
+              );
             },
             locale: const Locale('ar', 'SA'),
             localizationsDelegates: const [

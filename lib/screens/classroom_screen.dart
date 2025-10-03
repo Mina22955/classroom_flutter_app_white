@@ -64,15 +64,16 @@ class _ClassroomScreenState extends State<ClassroomScreen> {
         border: Border.all(
           color: isExpanded
               ? const Color(0xFF0A84FF).withOpacity(0.25)
-              : Colors.white.withOpacity(0.15),
-          width: isExpanded ? 1.5 : 1,
+              : Colors.black.withOpacity(0.10),
+          width: isExpanded ? 1.5 : 1.2,
         ),
         boxShadow: [
           // Soft ambient shadow to lift the glass off the background
           BoxShadow(
-            color: Colors.black.withOpacity(0.12),
-            blurRadius: 28,
-            offset: const Offset(0, 12),
+            color: Colors.black.withOpacity(0.16),
+            blurRadius: 32,
+            spreadRadius: 1,
+            offset: const Offset(0, 14),
           ),
           // Subtle rim light to enhance the glass edge
           BoxShadow(
