@@ -33,6 +33,13 @@ class _MyAppState extends State<MyApp> {
         statusBarBrightness: Brightness.light,
       ),
     );
+    // Ensure Android recent-apps shows the correct app name and color
+    SystemChrome.setApplicationSwitcherDescription(
+      const ApplicationSwitcherDescription(
+        label: 'Aamana classroom',
+        primaryColor: 0xFF0A84FF,
+      ),
+    );
   }
 
   Future<void> _initializeAuth() async {
@@ -57,7 +64,7 @@ class _MyAppState extends State<MyApp> {
       child: Consumer<AuthProvider>(
         builder: (context, authProvider, child) {
           return MaterialApp.router(
-            title: 'Mansa',
+            title: 'Aamana classroom',
             debugShowCheckedModeBanner: false,
             theme: appTheme,
             routerConfig: AppRouter.router,

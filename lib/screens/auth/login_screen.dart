@@ -81,9 +81,22 @@ class _LoginScreenState extends State<LoginScreen> {
       } else {
         print(
             'LoginScreen: Regular error, showing: ${authProvider.error ?? 'فشل في تسجيل الدخول'}');
-        // TEMPORARY TEST: Always show the new message for testing
+        // Map generic/invalid cases to the correct Arabic message
+        final raw = (authProvider.error ?? '').toLowerCase();
+        String displayError;
+        if (raw.contains('invalid') ||
+            raw.contains('wrong') ||
+            raw.contains('incorrect') ||
+            raw.contains('not found') ||
+            raw.contains('غير صحيحه') ||
+            raw.contains('غير صحيحة') ||
+            raw.contains('المستخدم غير موجود')) {
+          displayError = 'البيانات غير صحيحه';
+        } else {
+          displayError = authProvider.error ?? 'فشل في تسجيل الدخول';
+        }
         setState(() {
-          _errorMessage = 'الحساب مسجل في جهاز اخر';
+          _errorMessage = displayError;
         });
         // Auto-dismiss error after 3 seconds
         Future.delayed(const Duration(seconds: 3), () {

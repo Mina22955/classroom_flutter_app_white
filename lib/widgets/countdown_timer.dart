@@ -72,10 +72,35 @@ class _CountdownTimerState extends State<CountdownTimer> {
     }
   }
 
+  // Format duration for small screens (more compact)
+  String _formatDurationCompact(Duration duration) {
+    final days = duration.inDays;
+    final hours = duration.inHours % 24;
+    final minutes = duration.inMinutes % 60;
+    final seconds = duration.inSeconds % 60;
+
+    if (days > 0) {
+      return '${days}د ${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+    } else if (hours > 0) {
+      return '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+    } else {
+      return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    // Get screen width to determine if we need to adjust layout
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isSmallScreen = screenWidth < 360; // Small phones like iPhone SE
+    final isVerySmallScreen = screenWidth < 320; // Very small screens
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      width: double.infinity, // Take full width to prevent overflow
+      padding: EdgeInsets.symmetric(
+        horizontal: isVerySmallScreen ? 8 : (isSmallScreen ? 12 : 16),
+        vertical: isVerySmallScreen ? 8 : 12,
+      ),
       decoration: BoxDecoration(
         color: _isExpired
             ? Colors.red.withOpacity(0.1)
@@ -87,26 +112,62 @@ class _CountdownTimerState extends State<CountdownTimer> {
         ),
       ),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
             _isExpired ? Icons.warning : Icons.access_time,
             color: _isExpired ? Colors.red : Colors.orange,
-            size: 20,
+            size: isVerySmallScreen ? 16 : (isSmallScreen ? 18 : 20),
           ),
-          const SizedBox(width: 8),
-          Text(
-            _isExpired
-                ? 'انتهت الصلاحية'
-                : 'معاد التجديد: ${_formatDuration(_remainingTime)}',
-            style: TextStyle(
-              color: _isExpired ? Colors.red : Colors.orange,
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
+          SizedBox(width: isVerySmallScreen ? 4 : (isSmallScreen ? 6 : 8)),
+          Expanded(
+            // Make text flexible to prevent overflow
+            child: Text(
+              _isExpired
+                  ? 'انتهت الصلاحية'
+                  : 'معاد التجديد: ${_getFormattedDuration(isVerySmallScreen, isSmallScreen)}',
+              style: TextStyle(
+                color: _isExpired ? Colors.red : Colors.orange,
+                fontSize: isVerySmallScreen ? 10 : (isSmallScreen ? 12 : 14),
+                fontWeight: FontWeight.w600,
+              ),
+              overflow: TextOverflow.ellipsis, // Handle overflow gracefully
+              maxLines: isVerySmallScreen
+                  ? 3
+                  : 2, // Allow more lines for very small screens
             ),
           ),
         ],
       ),
     );
+  }
+
+  // Get the appropriate formatted duration based on screen size
+  String _getFormattedDuration(bool isVerySmallScreen, bool isSmallScreen) {
+    if (isVerySmallScreen) {
+      // For very small screens, use the most compact format
+      return _formatDurationVeryCompact(_remainingTime);
+    } else if (isSmallScreen) {
+      // For small screens, use compact format
+      return _formatDurationCompact(_remainingTime);
+    } else {
+      // For normal screens, use full format
+      return _formatDuration(_remainingTime);
+    }
+  }
+
+  // Format duration for very small screens (most compact)
+  String _formatDurationVeryCompact(Duration duration) {
+    final days = duration.inDays;
+    final hours = duration.inHours % 24;
+    final minutes = duration.inMinutes % 60;
+    final seconds = duration.inSeconds % 60;
+
+    if (days > 0) {
+      return '${days}د ${hours}:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+    } else if (hours > 0) {
+      return '${hours}:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+    } else {
+      return '${minutes}:${seconds.toString().padLeft(2, '0')}';
+    }
   }
 }

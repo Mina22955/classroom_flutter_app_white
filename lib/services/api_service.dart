@@ -4,6 +4,15 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 
+/// API Service for handling all backend communication
+///
+/// This service automatically includes the access token in the Authorization header
+/// for all API calls when a token is set via setAccessToken().
+///
+/// Usage:
+/// 1. After successful login, call setAccessToken(token) to set the token
+/// 2. All subsequent API calls will automatically include the token in headers
+/// 3. Individual API methods can override the token by passing accessToken parameter
 class ApiService {
   static final ApiService _instance = ApiService._internal();
   factory ApiService() => _instance;
@@ -19,14 +28,62 @@ class ApiService {
         '${token != null ? token.substring(0, token.length > 10 ? 10 : token.length) + '...' : 'null'}');
   }
 
+  // Get current access token (for debugging)
+  String? getCurrentAccessToken() {
+    return _accessToken;
+  }
+
+  // Verify token is set
+  bool hasAccessToken() {
+    return _accessToken != null && _accessToken!.isNotEmpty;
+  }
+
+  // Test API call with current token (for debugging)
+  Future<Map<String, dynamic>> testApiWithToken() async {
+    try {
+      final uri = Uri.parse(
+          '$baseUrl/api/test'); // This endpoint might not exist, but we can test the headers
+      final headers = _buildHeaders();
+
+      print('ApiService: Testing API call with current token');
+      print('ApiService: Headers: $headers');
+
+      final response = await http.get(uri, headers: headers);
+
+      return {
+        'statusCode': response.statusCode,
+        'hasToken': hasAccessToken(),
+        'tokenPreview': _accessToken?.substring(0, 20) ?? 'none',
+        'responseBody': response.body,
+      };
+    } catch (e) {
+      return {
+        'error': e.toString(),
+        'hasToken': hasAccessToken(),
+        'tokenPreview': _accessToken?.substring(0, 20) ?? 'none',
+      };
+    }
+  }
+
   Map<String, String> _buildHeaders({String? accessToken, bool json = true}) {
     final effectiveToken = (accessToken != null && accessToken.isNotEmpty)
         ? accessToken
         : (_accessToken ?? '');
-    return <String, String>{
+
+    final headers = <String, String>{
       if (json) 'Content-Type': 'application/json',
       if (effectiveToken.isNotEmpty) 'Authorization': 'Bearer $effectiveToken',
     };
+
+    // Log the headers for debugging (without exposing the full token)
+    if (effectiveToken.isNotEmpty) {
+      print(
+          'ApiService: Building headers with token: ${effectiveToken.substring(0, 20)}...');
+    } else {
+      print('ApiService: Building headers without token');
+    }
+
+    return headers;
   }
 
   // Mock delay to simulate network requests
@@ -45,6 +102,8 @@ class ApiService {
 
       print('Making API call to: $uri');
       print('Headers: $headers');
+      print(
+          'ApiService: Using token: ${accessToken?.substring(0, 20) ?? _accessToken?.substring(0, 20) ?? 'none'}...');
 
       final response = await http.get(uri, headers: headers);
 
@@ -333,15 +392,20 @@ class ApiService {
           if (errorMessage.toLowerCase().contains('invalid credentials') ||
               errorMessage.toLowerCase().contains('wrong password') ||
               errorMessage.toLowerCase().contains('incorrect password')) {
-            errorMessage = 'بيانات تسجيل الدخول غير صحيحة';
+            errorMessage = 'البيانات غير صحيحه';
           } else if (errorMessage.toLowerCase().contains('user not found') ||
               errorMessage.toLowerCase().contains('email not found')) {
-            errorMessage = 'المستخدم غير موجود';
+            // Treat as invalid credentials for clearer UX
+            errorMessage = 'البيانات غير صحيحه';
           } else if (errorMessage.toLowerCase().contains('login error')) {
             errorMessage = 'خطأ في تسجيل الدخول';
           } else if (errorMessage.toLowerCase().contains('device') ||
               errorMessage.toLowerCase().contains('conflict') ||
               errorMessage.toLowerCase().contains('مسجل في جهاز') ||
+              errorMessage.toLowerCase().contains('مسجل على جهاز') ||
+              errorMessage.toLowerCase().contains('مسجل بجهاز') ||
+              errorMessage.toLowerCase().contains('على جهاز آخر') ||
+              errorMessage.toLowerCase().contains('على جهاز اخر') ||
               errorMessage
                   .toLowerCase()
                   .contains('logged in on another device') ||
@@ -357,11 +421,43 @@ class ApiService {
         }
       } catch (jsonError) {
         print('API Service: Login JSON parsing error: $jsonError');
+        // Inspect body text regardless of status code for known cases
+        final bodyLower = response.body.toLowerCase();
+        if (bodyLower.contains('device') ||
+            bodyLower.contains('conflict') ||
+            bodyLower.contains('مسجل في جهاز') ||
+            bodyLower.contains('مسجل على جهاز') ||
+            bodyLower.contains('على جهاز آخر') ||
+            bodyLower.contains('على جهاز اخر') ||
+            bodyLower.contains('logged in on another device') ||
+            bodyLower.contains('already active on another device') ||
+            bodyLower.contains('already logged in') ||
+            bodyLower.contains('session exists')) {
+          throw Exception('الحساب مسجل في جهاز اخر');
+        } else if (bodyLower.contains('invalid') ||
+            bodyLower.contains('wrong password') ||
+            bodyLower.contains('incorrect password') ||
+            bodyLower.contains('user not found') ||
+            bodyLower.contains('email not found')) {
+          throw Exception('البيانات غير صحيحه');
+        }
         // If JSON parsing fails, provide user-friendly messages based on status code
         if (response.statusCode == 401) {
-          throw Exception('بيانات تسجيل الدخول غير صحيحة');
+          // Some backends use 401 for device conflict too; check body text
+          final body = response.body.toLowerCase();
+          if (body.contains('device') ||
+              body.contains('conflict') ||
+              body.contains('مسجل في جهاز') ||
+              body.contains('مسجل على جهاز') ||
+              body.contains('على جهاز آخر') ||
+              body.contains('على جهاز اخر') ||
+              body.contains('logged in on another device')) {
+            throw Exception('الحساب مسجل في جهاز اخر');
+          }
+          throw Exception('البيانات غير صحيحه');
         } else if (response.statusCode == 404) {
-          throw Exception('المستخدم غير موجود');
+          // Treat as invalid credentials for UX
+          throw Exception('البيانات غير صحيحه');
         } else if (response.statusCode == 500) {
           throw Exception('خطأ في الخادم، يرجى المحاولة لاحقاً');
         } else if (response.statusCode == 409) {
@@ -1541,14 +1637,12 @@ class ApiService {
   }) async {
     try {
       final uri = Uri.parse('$baseUrl/api/student/plan/$planId');
-      final headers = {
-        'Content-Type': 'application/json',
-        if (accessToken != null && accessToken.isNotEmpty)
-          'Authorization': 'Bearer $accessToken',
-      };
+      final headers = _buildHeaders(accessToken: accessToken);
 
       print('Making API call to: $uri');
       print('Headers: $headers');
+      print(
+          'ApiService: Using token for getPlanDetails: ${accessToken?.substring(0, 20) ?? _accessToken?.substring(0, 20) ?? 'none'}...');
 
       final response = await http.get(uri, headers: headers);
 
@@ -1596,14 +1690,12 @@ class ApiService {
   }) async {
     try {
       final uri = Uri.parse('$baseUrl/api/student/$userId/profile');
-      final headers = {
-        'Content-Type': 'application/json',
-        if (accessToken != null && accessToken.isNotEmpty)
-          'Authorization': 'Bearer $accessToken',
-      };
+      final headers = _buildHeaders(accessToken: accessToken);
 
       print('Making API call to: $uri');
       print('Headers: $headers');
+      print(
+          'ApiService: Using token for getUserProfile: ${accessToken?.substring(0, 20) ?? _accessToken?.substring(0, 20) ?? 'none'}...');
 
       final response = await http.get(uri, headers: headers);
 
@@ -1646,14 +1738,12 @@ class ApiService {
   }) async {
     try {
       final uri = Uri.parse('$baseUrl/api/student/$studentId/data');
-      final headers = {
-        'Content-Type': 'application/json',
-        if (accessToken != null && accessToken.isNotEmpty)
-          'Authorization': 'Bearer $accessToken',
-      };
+      final headers = _buildHeaders(accessToken: accessToken);
 
       print('Making API call to: $uri');
       print('Headers: $headers');
+      print(
+          'ApiService: Using token for getStudentData: ${accessToken?.substring(0, 20) ?? _accessToken?.substring(0, 20) ?? 'none'}...');
 
       final response = await http.get(uri, headers: headers);
 
@@ -1664,6 +1754,15 @@ class ApiService {
         final data = jsonDecode(response.body);
         print('API Response for student data: $data');
         return data;
+      } else if (response.statusCode == 401) {
+        print(
+            'API Error: Unauthorized (401) - Token may be invalid or expired');
+        print('Response body: ${response.body}');
+        return null;
+      } else if (response.statusCode == 403) {
+        print('API Error: Forbidden (403) - Access denied');
+        print('Response body: ${response.body}');
+        return null;
       } else {
         print(
             'Error fetching student data: ${response.statusCode} - ${response.body}');

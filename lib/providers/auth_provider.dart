@@ -85,6 +85,8 @@ class AuthProvider extends ChangeNotifier {
 
         // Make token available for all API calls by default
         _apiService.setAccessToken(_token);
+        print(
+            'AuthProvider: Access token set for API service: ${_token?.substring(0, 20)}...');
 
         // Save login data to secure storage
         await _saveLoginData();
@@ -105,7 +107,32 @@ class AuthProvider extends ChangeNotifier {
         String errorMessage =
             response['message'] ?? response['error'] ?? 'فشل في تسجيل الدخول';
         print('AuthProvider: Login failed - $errorMessage');
-        _setError(errorMessage);
+
+        final lower = errorMessage.toLowerCase();
+        final isDeviceConflict = lower.contains('device') ||
+            lower.contains('conflict') ||
+            lower.contains('مسجل في جهاز') ||
+            lower.contains('مسجل على جهاز') ||
+            lower.contains('على جهاز آخر') ||
+            lower.contains('على جهاز اخر') ||
+            lower.contains('logged in on another device') ||
+            lower.contains('already logged in') ||
+            lower.contains('session exists');
+
+        if (isDeviceConflict) {
+          _setError('DEVICE_CONFLICT');
+        } else if (lower.contains('invalid') ||
+            lower.contains('wrong') ||
+            lower.contains('incorrect') ||
+            lower.contains('not found') ||
+            lower.contains('غير صحيحه') ||
+            lower.contains('غير صحيحة') ||
+            lower.contains('المستخدم غير موجود')) {
+          _setError('البيانات غير صحيحه');
+        } else {
+          _setError(errorMessage);
+        }
+
         _setLoading(false);
         return false;
       }
@@ -123,12 +150,27 @@ class AuthProvider extends ChangeNotifier {
       print('AuthProvider: Processed error message: "$errorMessage"');
 
       // Check if this might be a device conflict error
-      if (errorMessage.toLowerCase().contains('device') ||
-          errorMessage.toLowerCase().contains('conflict') ||
-          errorMessage.toLowerCase().contains('مسجل في جهاز') ||
-          errorMessage.toLowerCase().contains('logged in on another device')) {
+      final lower = errorMessage.toLowerCase();
+      if (lower.contains('device') ||
+          lower.contains('conflict') ||
+          lower.contains('مسجل في جهاز') ||
+          lower.contains('مسجل على جهاز') ||
+          lower.contains('على جهاز آخر') ||
+          lower.contains('على جهاز اخر') ||
+          lower.contains('logged in on another device') ||
+          lower.contains('already active on another device') ||
+          lower.contains('already logged in') ||
+          lower.contains('session exists')) {
         print('AuthProvider: Detected device conflict in exception');
         _setError('DEVICE_CONFLICT');
+      } else if (lower.contains('invalid') ||
+          lower.contains('wrong') ||
+          lower.contains('incorrect') ||
+          lower.contains('not found') ||
+          lower.contains('غير صحيحه') ||
+          lower.contains('غير صحيحة') ||
+          lower.contains('المستخدم غير موجود')) {
+        _setError('البيانات غير صحيحه');
       } else {
         print('AuthProvider: Setting regular error: $errorMessage');
         _setError(errorMessage);
@@ -224,6 +266,73 @@ class AuthProvider extends ChangeNotifier {
         'formattedDate': 'غير محدد',
         'plan': '',
         'status': 'inactive',
+      };
+    }
+  }
+
+  // Verify that access token is properly set in API service
+  bool verifyAccessToken() {
+    final hasToken = _apiService.hasAccessToken();
+    final currentToken = _apiService.getCurrentAccessToken();
+    print(
+        'AuthProvider: Token verification - hasToken: $hasToken, currentToken: ${currentToken?.substring(0, 20) ?? 'null'}...');
+    return hasToken;
+  }
+
+  // Test API call with current token (for debugging)
+  Future<Map<String, dynamic>> testApiWithToken() async {
+    print('AuthProvider: Testing API call with current token...');
+    return await _apiService.testApiWithToken();
+  }
+
+  // Force refresh the token in API service
+  void forceRefreshToken() {
+    if (_token != null) {
+      _apiService.setAccessToken(_token);
+      print(
+          'AuthProvider: Token force refreshed in API service: ${_token?.substring(0, 20)}...');
+    } else {
+      print('AuthProvider: No token to refresh');
+    }
+  }
+
+  // Test a real API call to verify token is working
+  Future<Map<String, dynamic>> testRealApiCall() async {
+    if (_user == null) {
+      return {'error': 'User not logged in'};
+    }
+
+    try {
+      final rawUserId = _user!['id'] ?? _user!['_id'] ?? _user!['userId'];
+      if (rawUserId == null) {
+        return {'error': 'User ID not found'};
+      }
+
+      print('AuthProvider: Testing real API call with token...');
+      print('AuthProvider: User ID: $rawUserId');
+      print('AuthProvider: Token: ${_token?.substring(0, 20) ?? 'none'}...');
+      print(
+          'AuthProvider: API Service has token: ${_apiService.hasAccessToken()}');
+
+      final classes = await getStudentClasses();
+
+      return {
+        'success': true,
+        'message': 'API call successful',
+        'classesCount': classes.length,
+        'hasToken': verifyAccessToken(),
+        'tokenPreview': _token?.substring(0, 20) ?? 'none',
+        'apiServiceToken':
+            _apiService.getCurrentAccessToken()?.substring(0, 20) ?? 'none',
+      };
+    } catch (e) {
+      print('AuthProvider: Test API call failed: $e');
+      return {
+        'error': e.toString(),
+        'hasToken': verifyAccessToken(),
+        'tokenPreview': _token?.substring(0, 20) ?? 'none',
+        'apiServiceToken':
+            _apiService.getCurrentAccessToken()?.substring(0, 20) ?? 'none',
       };
     }
   }
@@ -338,6 +447,14 @@ class AuthProvider extends ChangeNotifier {
       }
 
       print('AuthProvider: Fetching fresh student data for user: $rawUserId');
+      print('AuthProvider: Token: ${_token?.substring(0, 20) ?? 'none'}...');
+      print(
+          'AuthProvider: API Service has token: ${_apiService.hasAccessToken()}');
+      print(
+          'AuthProvider: API Service token: ${_apiService.getCurrentAccessToken()?.substring(0, 20) ?? 'none'}...');
+
+      // Force refresh token in API service to ensure it's set
+      forceRefreshToken();
 
       // Fetch fresh data from unified API
       final studentData = await _apiService.getStudentData(
@@ -887,6 +1004,8 @@ class AuthProvider extends ChangeNotifier {
         _isAuthenticated = true;
         // Set default token into API service for all calls
         _apiService.setAccessToken(_token);
+        print(
+            'AuthProvider: Access token restored for API service: ${token.substring(0, 20)}...');
         if (deviceToken != null) {
           _deviceToken = deviceToken;
         }
@@ -1058,6 +1177,11 @@ class AuthProvider extends ChangeNotifier {
         _token = response['accessToken'];
         _user = response['user'];
         _isAuthenticated = true;
+
+        // Make token available for all API calls by default
+        _apiService.setAccessToken(_token);
+        print(
+            'AuthProvider: Access token set for API service (force login): ${_token?.substring(0, 20)}...');
 
         // Save login data to secure storage
         await _saveLoginData();

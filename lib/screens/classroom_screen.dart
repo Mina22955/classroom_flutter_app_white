@@ -55,10 +55,11 @@ class _ClassroomScreenState extends State<ClassroomScreen> {
     required bool isExpanded,
     required Widget child,
     bool enableBlur = true,
+    String? decorSeed,
   }) {
     final content = Container(
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.45),
+        color: Colors.white.withOpacity(0.5),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
           color: isExpanded
@@ -67,24 +68,49 @@ class _ClassroomScreenState extends State<ClassroomScreen> {
           width: isExpanded ? 1.5 : 1,
         ),
         boxShadow: [
+          // Soft ambient shadow to lift the glass off the background
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
-            blurRadius: 18,
-            offset: const Offset(0, 8),
+            color: Colors.black.withOpacity(0.12),
+            blurRadius: 28,
+            offset: const Offset(0, 12),
+          ),
+          // Subtle rim light to enhance the glass edge
+          BoxShadow(
+            color: Colors.white.withOpacity(0.7),
+            blurRadius: 6,
+            spreadRadius: -2,
+            offset: const Offset(0, -1),
           ),
         ],
       ),
       child: child,
     );
 
+    Widget decoratedContent = content;
+
+    // Optional decorative overlay (circles and cap icon), seeded for variety
+    if (decorSeed != null) {
+      decoratedContent = Stack(
+        clipBehavior: Clip.none,
+        children: [
+          content,
+          Positioned.fill(
+            child: IgnorePointer(
+              child: _CardDecor(seed: decorSeed),
+            ),
+          ),
+        ],
+      );
+    }
+
     return ClipRRect(
       borderRadius: BorderRadius.circular(20),
       child: enableBlur
           ? BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-              child: content,
+              filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+              child: decoratedContent,
             )
-          : content,
+          : decoratedContent,
     );
   }
 
@@ -569,6 +595,7 @@ class _ClassroomScreenState extends State<ClassroomScreen> {
                 child: _glassCard(
                   isExpanded: isExpanded,
                   enableBlur: false,
+                  decorSeed: fileKey,
                   child: ExpansionTile(
                     collapsedIconColor: const Color(0xFF0A84FF),
                     iconColor: const Color(0xFF0A84FF),
@@ -843,6 +870,7 @@ class _ClassroomScreenState extends State<ClassroomScreen> {
               child: _glassCard(
                 isExpanded: isExpanded,
                 enableBlur: false,
+                decorSeed: examKey,
                 child: ExpansionTile(
                   collapsedIconColor: const Color(0xFF0A84FF),
                   iconColor: const Color(0xFF0A84FF),
@@ -1354,6 +1382,7 @@ class _ClassroomScreenState extends State<ClassroomScreen> {
       child: _glassCard(
         isExpanded: isExpanded,
         enableBlur: false, // Avoid blur behind WebView to prevent GPU crashes
+        decorSeed: videoKey,
         child: ExpansionTile(
           collapsedIconColor: const Color(0xFF0A84FF),
           iconColor: const Color(0xFF0A84FF),
@@ -1969,4 +1998,203 @@ class _ClassroomScreenState extends State<ClassroomScreen> {
       },
     );
   }
+}
+
+class _CardDecor extends StatelessWidget {
+  final String seed;
+  const _CardDecor({required this.seed});
+
+  @override
+  Widget build(BuildContext context) {
+    final int hash = seed.hashCode;
+    int pick(int max, int shift) => ((hash >> shift).abs() % max);
+    double rnd(double min, double max, int shift) {
+      final span = max - min;
+      final val = ((hash >> shift).abs() % 1000) / 1000.0;
+      return min + val * span;
+    }
+
+    final int variant = pick(3, 3);
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Ensure we occupy full size to avoid unlaid out errors
+        final width = constraints.maxWidth;
+        final height = constraints.maxHeight;
+
+        List<Widget> children = [];
+
+        // Large soft radial circle (top-left)
+        if (variant == 0 || variant == 2) {
+          final double s1 = 90 + pick(20, 9).toDouble();
+          final double y1 = (height * 0.5) - (s1 / 2) + rnd(-12, 12, 71);
+          children.add(Positioned(
+            top: y1,
+            left: -rnd(8, 20, 7),
+            child: Container(
+              width: s1,
+              height: s1,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    const Color(0xFF0A84FF).withOpacity(0.18),
+                    const Color(0xFF0A84FF).withOpacity(0.00),
+                  ],
+                  radius: 0.9,
+                ),
+              ),
+            ),
+          ));
+        }
+
+        // Graduation cap (bottom-right)
+        if (variant == 1 || variant == 2) {
+          children.add(Positioned(
+            right: rnd(6, 18, 13),
+            bottom: rnd(6, 16, 15),
+            child: Icon(
+              Icons.school,
+              size: 28 + pick(10, 17).toDouble(),
+              color: const Color(0xFF0A84FF).withOpacity(0.12),
+            ),
+          ));
+        }
+
+        // Small blur accent (top-right)
+        children.add(Positioned(
+          right: rnd(10, 24, 19),
+          top: rnd(8, 18, 21),
+          child: Icon(
+            Icons.blur_on,
+            size: 16 + pick(8, 23).toDouble(),
+            color: const Color(0xFF0A84FF).withOpacity(0.16),
+          ),
+        ));
+
+        // NEW: thin rings near center-right (1-2 concentric)
+        final double ringBaseX = width * (0.15 + (pick(30, 25) / 100));
+        final double ringBaseY = height * (0.15 + (pick(30, 27) / 100));
+        final int ringCount = 1 + pick(2, 53);
+        for (int r = 0; r < ringCount; r++) {
+          final double size = 36 + pick(12, 29 + r).toDouble() + r * 10;
+          children.add(Positioned(
+            right: ringBaseX - (r * 4),
+            top: ringBaseY - (r * 4),
+            child: Container(
+              width: size,
+              height: size,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: const Color(0xFF0A84FF).withOpacity(0.10 - r * 0.02),
+                  width: 1.2,
+                ),
+                boxShadow: [
+                  if (r == 0)
+                    BoxShadow(
+                      color: const Color(0xFF0A84FF).withOpacity(0.08),
+                      blurRadius: 10,
+                    ),
+                ],
+              ),
+            ),
+          ));
+        }
+
+        // NEW: a few tiny glowing dots scattered
+        final int dots = 2 + pick(3, 33);
+        for (int i = 0; i < dots; i++) {
+          children.add(Positioned(
+            left: width * (0.1 + ((pick(80, 35 + i) % 80) / 100)),
+            top: height * (0.1 + ((pick(80, 41 + i) % 80) / 100)),
+            child: Container(
+              width: 4 + (pick(4, 45 + i) / 2),
+              height: 4 + (pick(4, 49 + i) / 2),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: const Color(0xFF0A84FF).withOpacity(0.15),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF0A84FF).withOpacity(0.20),
+                    blurRadius: 6,
+                    spreadRadius: 1,
+                  ),
+                ],
+              ),
+            ),
+          ));
+        }
+
+        // NEW: diagonal soft gradient sweep
+        children.add(Transform.rotate(
+          angle: -0.35,
+          origin: Offset(width * 0.2, height * 0.1),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: Container(
+              width: width * 0.35,
+              height: 24,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    Colors.white.withOpacity(0.08),
+                    Colors.white.withOpacity(0.0),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ));
+
+        // Removed corner highlight circles as requested
+
+        // NEW: gloss arc painter (top edge)
+        children.add(Positioned(
+          left: width * 0.15,
+          top: -6,
+          child: CustomPaint(
+            size: Size(width * 0.5, 20),
+            painter: _GlossArcPainter(opacity: 0.08),
+          ),
+        ));
+
+        return SizedBox(
+          width: width,
+          height: height,
+          child: Stack(clipBehavior: Clip.none, children: children),
+        );
+      },
+    );
+  }
+}
+
+class _GlossArcPainter extends CustomPainter {
+  final double opacity;
+  _GlossArcPainter({this.opacity = 0.08});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final Paint paint = Paint()
+      ..shader = LinearGradient(
+        colors: [
+          Colors.white.withOpacity(opacity),
+          Colors.white.withOpacity(0),
+        ],
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+      ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
+
+    final Path path = Path()
+      ..moveTo(0, size.height)
+      ..quadraticBezierTo(size.width * 0.25, 0, size.width * 0.5, 0)
+      ..quadraticBezierTo(size.width * 0.75, 0, size.width, size.height)
+      ..lineTo(0, size.height)
+      ..close();
+
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

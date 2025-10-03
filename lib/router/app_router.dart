@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
+import '../screens/splash_screen.dart';
 import '../screens/auth/login_screen.dart';
 import '../screens/auth/signup_screen.dart';
 import '../screens/auth/signup_with_payment_screen.dart';
@@ -19,7 +20,7 @@ import '../screens/debug/api_test_screen.dart';
 
 class AppRouter {
   static final GoRouter router = GoRouter(
-    initialLocation: '/login',
+    initialLocation: '/splash',
     redirect: (context, state) async {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
 
@@ -39,6 +40,11 @@ class AppRouter {
       print('AppRouter: Current path: $currentPath');
       print('AppRouter: Is authenticated: $isAuthenticated');
       print('AppRouter: Is subscribed: $isSubscribed');
+
+      // Allow splash screen to show without redirects
+      if (currentPath == '/splash') {
+        return null;
+      }
 
       // If user is not authenticated and trying to access protected routes
       if (!isAuthenticated) {
@@ -83,6 +89,11 @@ class AppRouter {
       return null; // No redirect needed
     },
     routes: [
+      GoRoute(
+        path: '/splash',
+        name: 'splash',
+        builder: (context, state) => const SplashScreen(),
+      ),
       GoRoute(
         path: '/login',
         name: 'login',
