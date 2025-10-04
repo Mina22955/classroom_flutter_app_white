@@ -90,239 +90,246 @@ class _ProfileScreenState extends State<ProfileScreen> {
     ScaffoldMessenger.of(context).showSnackBar(snack);
   }
 
-  // Reusable glass-styled container with enhanced borders and decorations
+  // Clean container with blue outer border and decorative elements
   Widget _glassContainer({
     required Widget child,
-    EdgeInsetsGeometry padding = const EdgeInsets.all(16),
+    EdgeInsetsGeometry padding = const EdgeInsets.all(20),
     BorderRadiusGeometry borderRadius =
-        const BorderRadius.all(Radius.circular(20)),
-    double borderWidth = 2.5,
+        const BorderRadius.all(Radius.circular(16)),
     bool showDecorations = true,
   }) {
     return Container(
       decoration: BoxDecoration(
+        color: Colors.white,
         borderRadius: borderRadius,
         border: Border.all(
-          color: const Color(0xFF1976D2), // Outer border
-          width: 3,
+          color: const Color(0xFF0A84FF).withOpacity(0.2),
+          width: 1.5,
         ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF1976D2).withOpacity(0.2),
-            blurRadius: 10,
-            offset: const Offset(0, 5),
+            color: const Color(0xFF0A84FF).withOpacity(0.08),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
           ),
           BoxShadow(
-            color: Colors.black.withOpacity(0.15),
-            blurRadius: 15,
-            offset: const Offset(0, 8),
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
-      child: ClipRRect(
-        borderRadius: borderRadius,
-        child: Stack(
-          children: [
-            // Clear and distinct card with enhanced border and shadows
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.white, // White background
-                borderRadius: borderRadius,
-                border: Border.all(
-                  color: const Color(0xFF1976D2), // Inner border
-                  width: 1,
-                ),
-              ),
-            ),
-            // Inner glass layer with enhanced border
-            Container(
-              margin: EdgeInsets.all(borderWidth),
-              decoration: BoxDecoration(
-                color: Colors.white
-                    .withOpacity(0.85), // More opaque for better clarity
-                borderRadius: BorderRadius.circular(
-                  (borderRadius is BorderRadius) ? borderRadius.topLeft.x : 20,
-                ),
-                border: Border.all(
-                  color: const Color(0xFF1976D2)
-                      .withOpacity(0.2), // Subtle inner border
-                  width: 1,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                child: Stack(
-                  children: [
-                    // Decorative elements
-                    if (showDecorations) ...[
-                      // Top-right graduation cap
-                      Positioned(
-                        top: 6,
-                        right: 6,
-                        child: Container(
-                          width: 22,
-                          height: 22,
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF0A84FF).withOpacity(0.005),
-                            borderRadius: BorderRadius.circular(11),
-                          ),
-                          child: const Icon(
-                            Icons.school,
-                            color: Color(0xFF0A84FF),
-                            size: 14,
-                          ),
-                        ),
-                      ),
-                      // Bottom-left blue star
-                      Positioned(
-                        bottom: 6,
-                        left: 6,
-                        child: Container(
-                          width: 20,
-                          height: 20,
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF0A84FF).withOpacity(0.005),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: const Icon(
-                            Icons.star,
-                            color: Color(0xFF0A84FF),
-                            size: 14,
-                          ),
-                        ),
-                      ),
-                      // Top-left small blue star
-                      Positioned(
-                        top: 10,
-                        left: 10,
-                        child: Container(
-                          width: 16,
-                          height: 16,
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF007AFF).withOpacity(0.005),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Icon(
-                            Icons.star_border,
-                            color: Color(0xFF007AFF),
-                            size: 12,
-                          ),
-                        ),
-                      ),
-                      // Bottom-right small blue star
-                      Positioned(
-                        bottom: 10,
-                        right: 10,
-                        child: Container(
-                          width: 18,
-                          height: 18,
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF0A84FF).withOpacity(0.005),
-                            borderRadius: BorderRadius.circular(9),
-                          ),
-                          child: const Icon(
-                            Icons.star,
-                            color: Color(0xFF0A84FF),
-                            size: 12,
-                          ),
-                        ),
-                      ),
-                      // Center-right small graduation cap
-                      Positioned(
-                        top: 20,
-                        right: 20,
-                        child: Container(
-                          width: 14,
-                          height: 14,
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF007AFF).withOpacity(0.005),
-                            borderRadius: BorderRadius.circular(7),
-                          ),
-                          child: const Icon(
-                            Icons.school_outlined,
-                            color: Color(0xFF007AFF),
-                            size: 10,
-                          ),
-                        ),
-                      ),
-                    ],
-                    // Main content
-                    Padding(
-                      padding: padding,
-                      child: child,
-                    ),
-                  ],
-                ),
-              ),
-            ),
+      child: Stack(
+        children: [
+          // Random graduation cap shadows
+          if (showDecorations) ...[
+            // Top area graduation caps
+            Positioned(
+                top: 8, left: 12, child: _buildGraduationCap(8, 0.01, 0.05)),
+            Positioned(
+                top: 12, left: 45, child: _buildGraduationCap(6, 0.008, 0.04)),
+            Positioned(
+                top: 6, left: 78, child: _buildGraduationCap(10, 0.012, 0.06)),
+            Positioned(
+                top: 15, left: 120, child: _buildGraduationCap(7, 0.01, 0.05)),
+            Positioned(
+                top: 9, left: 160, child: _buildGraduationCap(9, 0.011, 0.055)),
+            Positioned(
+                top: 11,
+                left: 200,
+                child: _buildGraduationCap(5, 0.007, 0.035)),
+            Positioned(
+                top: 7, left: 240, child: _buildGraduationCap(8, 0.01, 0.05)),
+            Positioned(
+                top: 13, left: 280, child: _buildGraduationCap(6, 0.008, 0.04)),
+            Positioned(
+                top: 5, left: 320, child: _buildGraduationCap(9, 0.011, 0.055)),
+
+            // Middle area graduation caps
+            Positioned(
+                top: 35, left: 8, child: _buildGraduationCap(7, 0.009, 0.045)),
+            Positioned(
+                top: 38, left: 35, child: _buildGraduationCap(5, 0.006, 0.03)),
+            Positioned(
+                top: 32, left: 65, child: _buildGraduationCap(9, 0.011, 0.055)),
+            Positioned(
+                top: 40, left: 95, child: _buildGraduationCap(6, 0.008, 0.04)),
+            Positioned(
+                top: 36, left: 125, child: _buildGraduationCap(8, 0.01, 0.05)),
+            Positioned(
+                top: 34,
+                left: 155,
+                child: _buildGraduationCap(7, 0.009, 0.045)),
+            Positioned(
+                top: 39, left: 185, child: _buildGraduationCap(5, 0.006, 0.03)),
+            Positioned(
+                top: 33,
+                left: 215,
+                child: _buildGraduationCap(9, 0.011, 0.055)),
+            Positioned(
+                top: 37, left: 245, child: _buildGraduationCap(6, 0.008, 0.04)),
+            Positioned(
+                top: 35, left: 275, child: _buildGraduationCap(8, 0.01, 0.05)),
+            Positioned(
+                top: 38,
+                left: 305,
+                child: _buildGraduationCap(7, 0.009, 0.045)),
+
+            // Lower area graduation caps
+            Positioned(
+                top: 65, left: 15, child: _buildGraduationCap(6, 0.008, 0.04)),
+            Positioned(
+                top: 68, left: 42, child: _buildGraduationCap(8, 0.01, 0.05)),
+            Positioned(
+                top: 62, left: 72, child: _buildGraduationCap(5, 0.006, 0.03)),
+            Positioned(
+                top: 70,
+                left: 102,
+                child: _buildGraduationCap(9, 0.011, 0.055)),
+            Positioned(
+                top: 66,
+                left: 132,
+                child: _buildGraduationCap(7, 0.009, 0.045)),
+            Positioned(
+                top: 64, left: 162, child: _buildGraduationCap(6, 0.008, 0.04)),
+            Positioned(
+                top: 69, left: 192, child: _buildGraduationCap(8, 0.01, 0.05)),
+            Positioned(
+                top: 63, left: 222, child: _buildGraduationCap(5, 0.006, 0.03)),
+            Positioned(
+                top: 67,
+                left: 252,
+                child: _buildGraduationCap(9, 0.011, 0.055)),
+            Positioned(
+                top: 65,
+                left: 282,
+                child: _buildGraduationCap(7, 0.009, 0.045)),
+
+            // Bottom area graduation caps
+            Positioned(
+                top: 95, left: 25, child: _buildGraduationCap(8, 0.01, 0.05)),
+            Positioned(
+                top: 98, left: 55, child: _buildGraduationCap(6, 0.008, 0.04)),
+            Positioned(
+                top: 92, left: 85, child: _buildGraduationCap(9, 0.011, 0.055)),
+            Positioned(
+                top: 100,
+                left: 115,
+                child: _buildGraduationCap(5, 0.006, 0.03)),
+            Positioned(
+                top: 96,
+                left: 145,
+                child: _buildGraduationCap(7, 0.009, 0.045)),
+            Positioned(
+                top: 94, left: 175, child: _buildGraduationCap(8, 0.01, 0.05)),
+            Positioned(
+                top: 99, left: 205, child: _buildGraduationCap(6, 0.008, 0.04)),
+            Positioned(
+                top: 93,
+                left: 235,
+                child: _buildGraduationCap(9, 0.011, 0.055)),
+            Positioned(
+                top: 97, left: 265, child: _buildGraduationCap(5, 0.006, 0.03)),
+            Positioned(
+                top: 95,
+                left: 295,
+                child: _buildGraduationCap(7, 0.009, 0.045)),
+
+            // Additional scattered graduation caps
+            Positioned(
+                top: 25,
+                left: 300,
+                child: _buildGraduationCap(4, 0.005, 0.025)),
+            Positioned(
+                top: 45, left: 5, child: _buildGraduationCap(6, 0.008, 0.04)),
+            Positioned(
+                top: 75, left: 310, child: _buildGraduationCap(5, 0.006, 0.03)),
+            Positioned(
+                top: 105, left: 2, child: _buildGraduationCap(7, 0.009, 0.045)),
+            Positioned(
+                top: 135,
+                left: 315,
+                child: _buildGraduationCap(4, 0.005, 0.025)),
+            Positioned(
+                top: 165, left: 8, child: _buildGraduationCap(6, 0.008, 0.04)),
+            Positioned(
+                top: 195,
+                left: 312,
+                child: _buildGraduationCap(5, 0.006, 0.03)),
+            Positioned(
+                top: 215,
+                left: 15,
+                child: _buildGraduationCap(7, 0.009, 0.045)),
+            Positioned(
+                top: 235,
+                left: 308,
+                child: _buildGraduationCap(4, 0.005, 0.025)),
+            Positioned(
+                top: 255, left: 22, child: _buildGraduationCap(6, 0.008, 0.04)),
           ],
-        ),
+          // Main content
+          Padding(
+            padding: padding,
+            child: child,
+          ),
+        ],
       ),
     );
   }
 
-  // Section heading with decorative underline
+  // Clean section heading without decorative elements
   Widget _sectionHeading(String title,
       {IconData? icon, Color color = const Color(0xFF1A1A1A)}) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (icon != null)
-              Icon(
-                icon,
-                size: 18,
-                color: const Color(0xFF0A84FF),
-              ),
-            if (icon != null) const SizedBox(width: 6),
-            Text(
-              title,
-              style: TextStyle(
-                color: color,
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 6),
-        Container(
-          height: 3,
-          width: 56,
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [Color(0xFF0A84FF), Color(0xFF007AFF)],
-            ),
-            borderRadius: BorderRadius.circular(2),
+        if (icon != null)
+          Icon(
+            icon,
+            size: 20,
+            color: const Color(0xFF0A84FF),
+          ),
+        if (icon != null) const SizedBox(width: 8),
+        Text(
+          title,
+          style: TextStyle(
+            color: color,
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
           ),
         ),
       ],
     );
   }
 
-  // Subtle divider used between info rows
+  // Clean minimal divider
   Widget _softDivider() {
     return Container(
       height: 1,
       width: double.infinity,
+      color: const Color(0xFFF3F4F6),
+    );
+  }
+
+  // Helper method to build graduation cap decorations
+  Widget _buildGraduationCap(
+      double size, double bgOpacity, double iconOpacity) {
+    final colors = [const Color(0xFF0A84FF), const Color(0xFF007AFF)];
+    final randomColor = colors[DateTime.now().millisecond % 2];
+
+    return Container(
+      width: size,
+      height: size,
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            Colors.black.withOpacity(0.04),
-            Colors.black.withOpacity(0.08),
-            Colors.black.withOpacity(0.04),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(1),
+        color: randomColor.withOpacity(bgOpacity),
+        borderRadius: BorderRadius.circular(size / 2),
+      ),
+      child: Icon(
+        DateTime.now().millisecond % 2 == 0
+            ? Icons.school
+            : Icons.school_outlined,
+        color: randomColor.withOpacity(iconOpacity),
+        size: size * 0.6,
       ),
     );
   }
@@ -1055,12 +1062,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 elevation: 0,
                 backgroundColor: Colors.transparent,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(24),
                 ),
                 child: ClipRRect(
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(24),
                   child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                    filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
                     child: Container(
                       constraints: BoxConstraints(
                         maxHeight: MediaQuery.of(context).viewInsets.bottom > 0
@@ -1071,16 +1078,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         maxWidth: MediaQuery.of(context).size.width * 0.9,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.45),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                          color: const Color(0xFF0A84FF).withOpacity(0.15),
-                          width: 1,
-                        ),
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(24),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.08),
-                            blurRadius: 18,
+                            color: const Color(0xFF0A84FF).withOpacity(0.15),
+                            blurRadius: 25,
+                            offset: const Offset(0, 10),
+                          ),
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.1),
+                            blurRadius: 20,
                             offset: const Offset(0, 8),
                           ),
                         ],
@@ -1088,40 +1096,61 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          // Header (glass style)
+                          // Professional Header with Blue Gradient
                           Container(
                             width: double.infinity,
-                            padding: const EdgeInsets.all(20),
+                            padding: const EdgeInsets.all(24),
                             decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.35),
-                              borderRadius: const BorderRadius.only(
-                                topLeft: Radius.circular(20),
-                                topRight: Radius.circular(20),
-                              ),
-                              border: Border.all(
-                                color: const Color(0xFF0A84FF).withOpacity(0.2),
-                                width: 1,
-                              ),
-                            ),
-                            child: ShaderMask(
-                              shaderCallback: (bounds) => const LinearGradient(
-                                colors: [
-                                  Color.fromARGB(255, 149, 199, 248),
-                                  Color(0xFF007AFF)
-                                ],
+                              gradient: const LinearGradient(
+                                colors: [Color(0xFF0A84FF), Color(0xFF007AFF)],
                                 begin: Alignment.topLeft,
                                 end: Alignment.bottomRight,
-                              ).createShader(bounds),
-                              blendMode: BlendMode.srcIn,
-                              child: const Text(
-                                'تعديل الملف الشخصي',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                                textAlign: TextAlign.center,
                               ),
+                              borderRadius: const BorderRadius.only(
+                                topLeft: Radius.circular(24),
+                                topRight: Radius.circular(24),
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color:
+                                      const Color(0xFF0A84FF).withOpacity(0.3),
+                                  blurRadius: 15,
+                                  offset: const Offset(0, 5),
+                                ),
+                              ],
+                            ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 40,
+                                  height: 40,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.2),
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: Colors.white.withOpacity(0.3),
+                                      width: 1,
+                                    ),
+                                  ),
+                                  child: const Icon(
+                                    Icons.edit_outlined,
+                                    color: Colors.white,
+                                    size: 20,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                const Expanded(
+                                  child: Text(
+                                    'تعديل الملف الشخصي',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 22,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                           // Form Content
@@ -1141,72 +1170,89 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     alignment: Alignment.centerRight,
                                     child: Text(
                                       'الاسم',
-                                      style: TextStyle(
-                                        color: const Color(0xFF6B7280),
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w600,
+                                      style: const TextStyle(
+                                        color: Color(0xFF0A84FF),
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.bold,
                                       ),
                                     ),
                                   ),
-                                  const SizedBox(height: 6),
+                                  const SizedBox(height: 8),
                                   Container(
                                     decoration: BoxDecoration(
-                                      color: Colors.white.withOpacity(0.04),
-                                      borderRadius: BorderRadius.circular(14),
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.circular(16),
                                       border: Border.all(
-                                          color: Colors.transparent, width: 0),
+                                        color: const Color(0xFF0A84FF)
+                                            .withOpacity(0.3),
+                                        width: 1.5,
+                                      ),
                                       boxShadow: [
                                         BoxShadow(
-                                          color: Colors.black.withOpacity(0.04),
-                                          blurRadius: 6,
-                                          offset: const Offset(0, 1),
+                                          color: const Color(0xFF0A84FF)
+                                              .withOpacity(0.1),
+                                          blurRadius: 8,
+                                          offset: const Offset(0, 2),
                                         ),
                                       ],
                                     ),
                                     child: TextField(
                                       controller: nameController,
                                       decoration: InputDecoration(
-                                        hintText: 'الاسم',
+                                        hintText: 'أدخل اسمك الكامل',
                                         hintStyle: const TextStyle(
-                                          color: Color(0xFF4B5563),
+                                          color: Color(0xFF9CA3AF),
                                           fontSize: 16,
+                                          fontWeight: FontWeight.w400,
                                         ),
-                                        prefixIcon: const Icon(
-                                          Icons.person_outline,
-                                          color: Color(0xFF0A84FF),
+                                        prefixIcon: Container(
+                                          margin: const EdgeInsets.all(8),
+                                          padding: const EdgeInsets.all(8),
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFF0A84FF)
+                                                .withOpacity(0.1),
+                                            borderRadius:
+                                                BorderRadius.circular(8),
+                                          ),
+                                          child: const Icon(
+                                            Icons.person_outline,
+                                            color: Color(0xFF0A84FF),
+                                            size: 20,
+                                          ),
                                         ),
                                         isDense: true,
                                         filled: true,
-                                        fillColor:
-                                            Colors.white.withOpacity(0.22),
+                                        fillColor: Colors.white,
                                         enabledBorder: OutlineInputBorder(
                                           borderRadius:
-                                              BorderRadius.circular(14),
+                                              BorderRadius.circular(16),
                                           borderSide: BorderSide(
                                             color: const Color(0xFF0A84FF)
-                                                .withOpacity(0.45),
-                                            width: 1.2,
+                                                .withOpacity(0.3),
+                                            width: 1.5,
                                           ),
                                         ),
                                         focusedBorder: OutlineInputBorder(
                                           borderRadius:
-                                              BorderRadius.circular(14),
+                                              BorderRadius.circular(16),
                                           borderSide: const BorderSide(
                                             color: Color(0xFF0A84FF),
-                                            width: 1.8,
+                                            width: 2.5,
                                           ),
                                         ),
                                         border: OutlineInputBorder(
                                           borderRadius:
-                                              BorderRadius.circular(14),
+                                              BorderRadius.circular(16),
                                           borderSide: BorderSide(
                                             color: const Color(0xFF0A84FF)
-                                                .withOpacity(0.45),
+                                                .withOpacity(0.3),
+                                            width: 1.5,
                                           ),
                                         ),
-                                        contentPadding: EdgeInsets.symmetric(
-                                          horizontal: 16,
-                                          vertical: 16,
+                                        contentPadding:
+                                            const EdgeInsets.symmetric(
+                                          horizontal: 20,
+                                          vertical: 18,
                                         ),
                                       ),
                                       style: const TextStyle(
@@ -1216,37 +1262,35 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                       ),
                                     ),
                                   ),
-                                  SizedBox(
-                                      height: MediaQuery.of(context)
-                                                  .viewInsets
-                                                  .bottom >
-                                              0
-                                          ? 12
-                                          : 16),
+                                  const SizedBox(height: 20),
                                   // Phone Field
                                   Align(
                                     alignment: Alignment.centerRight,
                                     child: Text(
                                       'رقم الهاتف',
-                                      style: TextStyle(
-                                        color: const Color(0xFF6B7280),
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w600,
+                                      style: const TextStyle(
+                                        color: Color(0xFF0A84FF),
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.bold,
                                       ),
                                     ),
                                   ),
-                                  const SizedBox(height: 6),
+                                  const SizedBox(height: 8),
                                   Container(
                                     decoration: BoxDecoration(
-                                      color: Colors.white.withOpacity(0.04),
-                                      borderRadius: BorderRadius.circular(14),
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.circular(16),
                                       border: Border.all(
-                                          color: Colors.transparent, width: 0),
+                                        color: const Color(0xFF0A84FF)
+                                            .withOpacity(0.3),
+                                        width: 1.5,
+                                      ),
                                       boxShadow: [
                                         BoxShadow(
-                                          color: Colors.black.withOpacity(0.04),
-                                          blurRadius: 6,
-                                          offset: const Offset(0, 1),
+                                          color: const Color(0xFF0A84FF)
+                                              .withOpacity(0.1),
+                                          blurRadius: 8,
+                                          offset: const Offset(0, 2),
                                         ),
                                       ],
                                     ),
@@ -1254,47 +1298,60 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                       controller: phoneController,
                                       keyboardType: TextInputType.phone,
                                       decoration: InputDecoration(
-                                        hintText: 'رقم الهاتف',
+                                        hintText: 'أدخل رقم هاتفك',
                                         hintStyle: const TextStyle(
-                                          color: Color(0xFF4B5563),
+                                          color: Color(0xFF9CA3AF),
                                           fontSize: 16,
+                                          fontWeight: FontWeight.w400,
                                         ),
-                                        prefixIcon: const Icon(
-                                          Icons.phone_outlined,
-                                          color: Color(0xFF0A84FF),
+                                        prefixIcon: Container(
+                                          margin: const EdgeInsets.all(8),
+                                          padding: const EdgeInsets.all(8),
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFF0A84FF)
+                                                .withOpacity(0.1),
+                                            borderRadius:
+                                                BorderRadius.circular(8),
+                                          ),
+                                          child: const Icon(
+                                            Icons.phone_outlined,
+                                            color: Color(0xFF0A84FF),
+                                            size: 20,
+                                          ),
                                         ),
                                         isDense: true,
                                         filled: true,
-                                        fillColor:
-                                            Colors.white.withOpacity(0.22),
+                                        fillColor: Colors.white,
                                         enabledBorder: OutlineInputBorder(
                                           borderRadius:
-                                              BorderRadius.circular(14),
+                                              BorderRadius.circular(16),
                                           borderSide: BorderSide(
                                             color: const Color(0xFF0A84FF)
-                                                .withOpacity(0.45),
-                                            width: 1.2,
+                                                .withOpacity(0.3),
+                                            width: 1.5,
                                           ),
                                         ),
                                         focusedBorder: OutlineInputBorder(
                                           borderRadius:
-                                              BorderRadius.circular(14),
+                                              BorderRadius.circular(16),
                                           borderSide: const BorderSide(
                                             color: Color(0xFF0A84FF),
-                                            width: 1.8,
+                                            width: 2.5,
                                           ),
                                         ),
                                         border: OutlineInputBorder(
                                           borderRadius:
-                                              BorderRadius.circular(14),
+                                              BorderRadius.circular(16),
                                           borderSide: BorderSide(
                                             color: const Color(0xFF0A84FF)
-                                                .withOpacity(0.45),
+                                                .withOpacity(0.3),
+                                            width: 1.5,
                                           ),
                                         ),
-                                        contentPadding: EdgeInsets.symmetric(
-                                          horizontal: 16,
-                                          vertical: 16,
+                                        contentPadding:
+                                            const EdgeInsets.symmetric(
+                                          horizontal: 20,
+                                          vertical: 18,
                                         ),
                                       ),
                                       style: const TextStyle(
@@ -1304,37 +1361,35 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                       ),
                                     ),
                                   ),
-                                  SizedBox(
-                                      height: MediaQuery.of(context)
-                                                  .viewInsets
-                                                  .bottom >
-                                              0
-                                          ? 12
-                                          : 16),
+                                  const SizedBox(height: 20),
                                   // Email Field
                                   Align(
                                     alignment: Alignment.centerRight,
                                     child: Text(
                                       'البريد الإلكتروني',
-                                      style: TextStyle(
-                                        color: const Color(0xFF6B7280),
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w600,
+                                      style: const TextStyle(
+                                        color: Color(0xFF0A84FF),
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.bold,
                                       ),
                                     ),
                                   ),
-                                  const SizedBox(height: 6),
+                                  const SizedBox(height: 8),
                                   Container(
                                     decoration: BoxDecoration(
-                                      color: Colors.white.withOpacity(0.04),
-                                      borderRadius: BorderRadius.circular(14),
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.circular(16),
                                       border: Border.all(
-                                          color: Colors.transparent, width: 0),
+                                        color: const Color(0xFF0A84FF)
+                                            .withOpacity(0.3),
+                                        width: 1.5,
+                                      ),
                                       boxShadow: [
                                         BoxShadow(
-                                          color: Colors.black.withOpacity(0.04),
-                                          blurRadius: 6,
-                                          offset: const Offset(0, 1),
+                                          color: const Color(0xFF0A84FF)
+                                              .withOpacity(0.1),
+                                          blurRadius: 8,
+                                          offset: const Offset(0, 2),
                                         ),
                                       ],
                                     ),
@@ -1342,47 +1397,60 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                       controller: emailController,
                                       keyboardType: TextInputType.emailAddress,
                                       decoration: InputDecoration(
-                                        hintText: 'البريد الإلكتروني',
+                                        hintText: 'أدخل بريدك الإلكتروني',
                                         hintStyle: const TextStyle(
-                                          color: Color(0xFF4B5563),
+                                          color: Color(0xFF9CA3AF),
                                           fontSize: 16,
+                                          fontWeight: FontWeight.w400,
                                         ),
-                                        prefixIcon: const Icon(
-                                          Icons.email_outlined,
-                                          color: Color(0xFF0A84FF),
+                                        prefixIcon: Container(
+                                          margin: const EdgeInsets.all(8),
+                                          padding: const EdgeInsets.all(8),
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFF0A84FF)
+                                                .withOpacity(0.1),
+                                            borderRadius:
+                                                BorderRadius.circular(8),
+                                          ),
+                                          child: const Icon(
+                                            Icons.email_outlined,
+                                            color: Color(0xFF0A84FF),
+                                            size: 20,
+                                          ),
                                         ),
                                         isDense: true,
                                         filled: true,
-                                        fillColor:
-                                            Colors.white.withOpacity(0.22),
+                                        fillColor: Colors.white,
                                         enabledBorder: OutlineInputBorder(
                                           borderRadius:
-                                              BorderRadius.circular(14),
+                                              BorderRadius.circular(16),
                                           borderSide: BorderSide(
                                             color: const Color(0xFF0A84FF)
-                                                .withOpacity(0.45),
-                                            width: 1.2,
+                                                .withOpacity(0.3),
+                                            width: 1.5,
                                           ),
                                         ),
                                         focusedBorder: OutlineInputBorder(
                                           borderRadius:
-                                              BorderRadius.circular(14),
+                                              BorderRadius.circular(16),
                                           borderSide: const BorderSide(
                                             color: Color(0xFF0A84FF),
-                                            width: 1.8,
+                                            width: 2.5,
                                           ),
                                         ),
                                         border: OutlineInputBorder(
                                           borderRadius:
-                                              BorderRadius.circular(14),
+                                              BorderRadius.circular(16),
                                           borderSide: BorderSide(
                                             color: const Color(0xFF0A84FF)
-                                                .withOpacity(0.45),
+                                                .withOpacity(0.3),
+                                            width: 1.5,
                                           ),
                                         ),
-                                        contentPadding: EdgeInsets.symmetric(
-                                          horizontal: 16,
-                                          vertical: 16,
+                                        contentPadding:
+                                            const EdgeInsets.symmetric(
+                                          horizontal: 20,
+                                          vertical: 18,
                                         ),
                                       ),
                                       style: const TextStyle(
@@ -1392,37 +1460,35 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                       ),
                                     ),
                                   ),
-                                  SizedBox(
-                                      height: MediaQuery.of(context)
-                                                  .viewInsets
-                                                  .bottom >
-                                              0
-                                          ? 12
-                                          : 16),
+                                  const SizedBox(height: 20),
                                   // Password Field
                                   Align(
                                     alignment: Alignment.centerRight,
                                     child: Text(
                                       'كلمة المرور الجديدة (اختياري)',
-                                      style: TextStyle(
-                                        color: const Color(0xFF6B7280),
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w600,
+                                      style: const TextStyle(
+                                        color: Color(0xFF0A84FF),
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.bold,
                                       ),
                                     ),
                                   ),
-                                  const SizedBox(height: 6),
+                                  const SizedBox(height: 8),
                                   Container(
                                     decoration: BoxDecoration(
-                                      color: Colors.white.withOpacity(0.04),
-                                      borderRadius: BorderRadius.circular(14),
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.circular(16),
                                       border: Border.all(
-                                          color: Colors.transparent, width: 0),
+                                        color: const Color(0xFF0A84FF)
+                                            .withOpacity(0.3),
+                                        width: 1.5,
+                                      ),
                                       boxShadow: [
                                         BoxShadow(
-                                          color: Colors.black.withOpacity(0.04),
-                                          blurRadius: 6,
-                                          offset: const Offset(0, 1),
+                                          color: const Color(0xFF0A84FF)
+                                              .withOpacity(0.1),
+                                          blurRadius: 8,
+                                          offset: const Offset(0, 2),
                                         ),
                                       ],
                                     ),
@@ -1431,47 +1497,60 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                       obscureText: true,
                                       decoration: InputDecoration(
                                         hintText:
-                                            'كلمة المرور الجديدة (اختياري)',
+                                            'أدخل كلمة مرور جديدة (اختياري)',
                                         hintStyle: const TextStyle(
-                                          color: Color(0xFF4B5563),
+                                          color: Color(0xFF9CA3AF),
                                           fontSize: 16,
+                                          fontWeight: FontWeight.w400,
                                         ),
-                                        prefixIcon: const Icon(
-                                          Icons.lock_outline,
-                                          color: Color(0xFF0A84FF),
+                                        prefixIcon: Container(
+                                          margin: const EdgeInsets.all(8),
+                                          padding: const EdgeInsets.all(8),
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFF0A84FF)
+                                                .withOpacity(0.1),
+                                            borderRadius:
+                                                BorderRadius.circular(8),
+                                          ),
+                                          child: const Icon(
+                                            Icons.lock_outline,
+                                            color: Color(0xFF0A84FF),
+                                            size: 20,
+                                          ),
                                         ),
                                         isDense: true,
                                         filled: true,
-                                        fillColor:
-                                            Colors.white.withOpacity(0.22),
+                                        fillColor: Colors.white,
                                         enabledBorder: OutlineInputBorder(
                                           borderRadius:
-                                              BorderRadius.circular(14),
+                                              BorderRadius.circular(16),
                                           borderSide: BorderSide(
                                             color: const Color(0xFF0A84FF)
-                                                .withOpacity(0.45),
-                                            width: 1.2,
+                                                .withOpacity(0.3),
+                                            width: 1.5,
                                           ),
                                         ),
                                         focusedBorder: OutlineInputBorder(
                                           borderRadius:
-                                              BorderRadius.circular(14),
+                                              BorderRadius.circular(16),
                                           borderSide: const BorderSide(
                                             color: Color(0xFF0A84FF),
-                                            width: 1.8,
+                                            width: 2.5,
                                           ),
                                         ),
                                         border: OutlineInputBorder(
                                           borderRadius:
-                                              BorderRadius.circular(14),
+                                              BorderRadius.circular(16),
                                           borderSide: BorderSide(
                                             color: const Color(0xFF0A84FF)
-                                                .withOpacity(0.45),
+                                                .withOpacity(0.3),
+                                            width: 1.5,
                                           ),
                                         ),
-                                        contentPadding: EdgeInsets.symmetric(
-                                          horizontal: 16,
-                                          vertical: 16,
+                                        contentPadding:
+                                            const EdgeInsets.symmetric(
+                                          horizontal: 20,
+                                          vertical: 18,
                                         ),
                                       ),
                                       style: const TextStyle(
@@ -1481,34 +1560,36 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                       ),
                                     ),
                                   ),
-                                  SizedBox(
-                                      height: MediaQuery.of(context)
-                                                  .viewInsets
-                                                  .bottom >
-                                              0
-                                          ? 16
-                                          : 24),
+                                  const SizedBox(height: 32),
                                   // Action Buttons
                                   Row(
                                     children: [
                                       // Cancel Button
                                       Expanded(
                                         child: Container(
-                                          height: 50,
+                                          height: 56,
                                           decoration: BoxDecoration(
-                                            color: Colors.transparent,
+                                            color: Colors.white,
                                             borderRadius:
-                                                BorderRadius.circular(12),
+                                                BorderRadius.circular(16),
                                             border: Border.all(
-                                              color: const Color(0xFFD1D5DB),
-                                              width: 1.5,
+                                              color: const Color(0xFFE5E7EB),
+                                              width: 2,
                                             ),
+                                            boxShadow: [
+                                              BoxShadow(
+                                                color: Colors.black
+                                                    .withOpacity(0.05),
+                                                blurRadius: 8,
+                                                offset: const Offset(0, 2),
+                                              ),
+                                            ],
                                           ),
                                           child: Material(
                                             color: Colors.transparent,
                                             child: InkWell(
                                               borderRadius:
-                                                  BorderRadius.circular(12),
+                                                  BorderRadius.circular(16),
                                               onTap: () =>
                                                   Navigator.of(ctx).pop(),
                                               child: const Center(
@@ -1517,7 +1598,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                                   style: TextStyle(
                                                     color: Color(0xFF6B7280),
                                                     fontSize: 16,
-                                                    fontWeight: FontWeight.w600,
+                                                    fontWeight: FontWeight.bold,
                                                   ),
                                                 ),
                                               ),
@@ -1525,29 +1606,40 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                           ),
                                         ),
                                       ),
-                                      const SizedBox(width: 12),
+                                      const SizedBox(width: 16),
                                       // Save Button
                                       Expanded(
                                         child: Consumer<AuthProvider>(
                                           builder:
                                               (context, authProvider, child) {
                                             return Container(
-                                              height: 50,
+                                              height: 56,
                                               decoration: BoxDecoration(
-                                                color: Colors.white
-                                                    .withOpacity(0.25),
+                                                gradient: const LinearGradient(
+                                                  colors: [
+                                                    Color(0xFF0A84FF),
+                                                    Color(0xFF007AFF)
+                                                  ],
+                                                  begin: Alignment.topLeft,
+                                                  end: Alignment.bottomRight,
+                                                ),
                                                 borderRadius:
-                                                    BorderRadius.circular(12),
-                                                border: Border.all(
+                                                    BorderRadius.circular(16),
+                                                boxShadow: [
+                                                  BoxShadow(
                                                     color:
-                                                        const Color(0xFF0A84FF),
-                                                    width: 1.5),
+                                                        const Color(0xFF0A84FF)
+                                                            .withOpacity(0.3),
+                                                    blurRadius: 12,
+                                                    offset: const Offset(0, 4),
+                                                  ),
+                                                ],
                                               ),
                                               child: Material(
                                                 color: Colors.transparent,
                                                 child: InkWell(
                                                   borderRadius:
-                                                      BorderRadius.circular(12),
+                                                      BorderRadius.circular(16),
                                                   onTap: authProvider.isLoading
                                                       ? null
                                                       : () async {
@@ -1626,43 +1718,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                                     child: authProvider
                                                             .isLoading
                                                         ? const SizedBox(
-                                                            width: 20,
-                                                            height: 20,
+                                                            width: 24,
+                                                            height: 24,
                                                             child:
                                                                 CircularProgressIndicator(
-                                                              color: Color(
-                                                                  0xFF0A84FF),
-                                                              strokeWidth: 2,
+                                                              color:
+                                                                  Colors.white,
+                                                              strokeWidth: 2.5,
                                                             ),
                                                           )
-                                                        : ShaderMask(
-                                                            shaderCallback:
-                                                                (bounds) =>
-                                                                    const LinearGradient(
-                                                              colors: [
-                                                                Color(
-                                                                    0xFF0A84FF),
-                                                                Color(
-                                                                    0xFF007AFF)
-                                                              ],
-                                                              begin: Alignment
-                                                                  .topLeft,
-                                                              end: Alignment
-                                                                  .bottomRight,
-                                                            ).createShader(
-                                                                        bounds),
-                                                            blendMode:
-                                                                BlendMode.srcIn,
-                                                            child: const Text(
-                                                              'حفظ',
-                                                              style: TextStyle(
-                                                                color: Colors
-                                                                    .white,
-                                                                fontSize: 16,
-                                                                fontWeight:
-                                                                    FontWeight
-                                                                        .w600,
-                                                              ),
+                                                        : const Text(
+                                                            'حفظ',
+                                                            style: TextStyle(
+                                                              color:
+                                                                  Colors.white,
+                                                              fontSize: 16,
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .bold,
                                                             ),
                                                           ),
                                                   ),
