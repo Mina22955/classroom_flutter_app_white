@@ -90,62 +90,180 @@ class _ProfileScreenState extends State<ProfileScreen> {
     ScaffoldMessenger.of(context).showSnackBar(snack);
   }
 
-  // Reusable glass-styled container with subtle gradient border
+  // Reusable glass-styled container with enhanced borders and decorations
   Widget _glassContainer({
     required Widget child,
     EdgeInsetsGeometry padding = const EdgeInsets.all(16),
     BorderRadiusGeometry borderRadius =
         const BorderRadius.all(Radius.circular(20)),
-    List<BoxShadow>? boxShadow,
-    double borderWidth = 1.2,
+    double borderWidth = 2.5,
+    bool showDecorations = true,
   }) {
-    final effectiveShadows = boxShadow ??
-        [
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: borderRadius,
+        border: Border.all(
+          color: const Color(0xFF1976D2), // Outer border
+          width: 3,
+        ),
+        boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.06),
-            blurRadius: 18,
+            color: const Color(0xFF1976D2).withOpacity(0.2),
+            blurRadius: 10,
+            offset: const Offset(0, 5),
+          ),
+          BoxShadow(
+            color: Colors.black.withOpacity(0.15),
+            blurRadius: 15,
             offset: const Offset(0, 8),
           ),
-        ];
-
-    return ClipRRect(
-      borderRadius: borderRadius,
-      child: Stack(
-        children: [
-          // Gradient border layer
-          Container(
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFFBFD8FF), Color(0xFFE6EEFF)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: borderRadius,
-              boxShadow: effectiveShadows,
-            ),
-          ),
-          // Inner glass layer
-          Container(
-            margin: EdgeInsets.all(borderWidth),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.50),
-              borderRadius: BorderRadius.circular(
-                (borderRadius is BorderRadius) ? borderRadius.topLeft.x : 20,
-              ),
-              border: Border.all(
-                color: const Color(0xFF0A84FF).withOpacity(0.12),
-                width: 1,
-              ),
-            ),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-              child: Padding(
-                padding: padding,
-                child: child,
-              ),
-            ),
-          ),
         ],
+      ),
+      child: ClipRRect(
+        borderRadius: borderRadius,
+        child: Stack(
+          children: [
+            // Clear and distinct card with enhanced border and shadows
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white, // White background
+                borderRadius: borderRadius,
+                border: Border.all(
+                  color: const Color(0xFF1976D2), // Inner border
+                  width: 1,
+                ),
+              ),
+            ),
+            // Inner glass layer with enhanced border
+            Container(
+              margin: EdgeInsets.all(borderWidth),
+              decoration: BoxDecoration(
+                color: Colors.white
+                    .withOpacity(0.85), // More opaque for better clarity
+                borderRadius: BorderRadius.circular(
+                  (borderRadius is BorderRadius) ? borderRadius.topLeft.x : 20,
+                ),
+                border: Border.all(
+                  color: const Color(0xFF1976D2)
+                      .withOpacity(0.2), // Subtle inner border
+                  width: 1,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                child: Stack(
+                  children: [
+                    // Decorative elements
+                    if (showDecorations) ...[
+                      // Top-right graduation cap
+                      Positioned(
+                        top: 6,
+                        right: 6,
+                        child: Container(
+                          width: 22,
+                          height: 22,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF0A84FF).withOpacity(0.005),
+                            borderRadius: BorderRadius.circular(11),
+                          ),
+                          child: const Icon(
+                            Icons.school,
+                            color: Color(0xFF0A84FF),
+                            size: 14,
+                          ),
+                        ),
+                      ),
+                      // Bottom-left blue star
+                      Positioned(
+                        bottom: 6,
+                        left: 6,
+                        child: Container(
+                          width: 20,
+                          height: 20,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF0A84FF).withOpacity(0.005),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(
+                            Icons.star,
+                            color: Color(0xFF0A84FF),
+                            size: 14,
+                          ),
+                        ),
+                      ),
+                      // Top-left small blue star
+                      Positioned(
+                        top: 10,
+                        left: 10,
+                        child: Container(
+                          width: 16,
+                          height: 16,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF007AFF).withOpacity(0.005),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(
+                            Icons.star_border,
+                            color: Color(0xFF007AFF),
+                            size: 12,
+                          ),
+                        ),
+                      ),
+                      // Bottom-right small blue star
+                      Positioned(
+                        bottom: 10,
+                        right: 10,
+                        child: Container(
+                          width: 18,
+                          height: 18,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF0A84FF).withOpacity(0.005),
+                            borderRadius: BorderRadius.circular(9),
+                          ),
+                          child: const Icon(
+                            Icons.star,
+                            color: Color(0xFF0A84FF),
+                            size: 12,
+                          ),
+                        ),
+                      ),
+                      // Center-right small graduation cap
+                      Positioned(
+                        top: 20,
+                        right: 20,
+                        child: Container(
+                          width: 14,
+                          height: 14,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF007AFF).withOpacity(0.005),
+                            borderRadius: BorderRadius.circular(7),
+                          ),
+                          child: const Icon(
+                            Icons.school_outlined,
+                            color: Color(0xFF007AFF),
+                            size: 10,
+                          ),
+                        ),
+                      ),
+                    ],
+                    // Main content
+                    Padding(
+                      padding: padding,
+                      child: child,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -542,7 +660,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                     ),
                     const SizedBox(height: 20),
-                    // Countdown Timer
+                    // Countdown Timer with enhanced styling
                     if (expiryDate != null)
                       _glassContainer(
                         borderRadius: BorderRadius.circular(16),
@@ -673,7 +791,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             ),
                           ],
                           const SizedBox(height: 16),
-                          // Transparent button with blue outline and gradient text at bottom-left
+                          // Enhanced button with blue outline and gradient text at bottom-left
                           Align(
                             alignment: Alignment.bottomLeft,
                             child: Material(
@@ -692,29 +810,62 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     borderRadius: BorderRadius.circular(12),
                                     border: Border.all(
                                         color: const Color(0xFF0A84FF),
-                                        width: 1.5),
+                                        width: 2),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: const Color(0xFF0A84FF)
+                                            .withOpacity(0.1),
+                                        blurRadius: 6,
+                                        offset: const Offset(0, 3),
+                                      ),
+                                    ],
                                   ),
-                                  child: Center(
-                                    child: ShaderMask(
-                                      shaderCallback: (bounds) =>
-                                          const LinearGradient(
-                                        colors: [
-                                          Color(0xFF0A84FF),
-                                          Color(0xFF007AFF)
-                                        ],
-                                        begin: Alignment.topLeft,
-                                        end: Alignment.bottomRight,
-                                      ).createShader(bounds),
-                                      blendMode: BlendMode.srcIn,
-                                      child: const Text(
-                                        'ترقيه الخطه',
-                                        style: TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w600,
+                                  child: Stack(
+                                    children: [
+                                      // Decorative blue star in top-right corner
+                                      Positioned(
+                                        top: 2,
+                                        right: 4,
+                                        child: Container(
+                                          width: 12,
+                                          height: 12,
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFF0A84FF)
+                                                .withOpacity(0.005),
+                                            borderRadius:
+                                                BorderRadius.circular(6),
+                                          ),
+                                          child: const Icon(
+                                            Icons.star,
+                                            color: Color(0xFF0A84FF),
+                                            size: 8,
+                                          ),
                                         ),
                                       ),
-                                    ),
+                                      // Main content
+                                      Center(
+                                        child: ShaderMask(
+                                          shaderCallback: (bounds) =>
+                                              const LinearGradient(
+                                            colors: [
+                                              Color(0xFF0A84FF),
+                                              Color(0xFF007AFF)
+                                            ],
+                                            begin: Alignment.topLeft,
+                                            end: Alignment.bottomRight,
+                                          ).createShader(bounds),
+                                          blendMode: BlendMode.srcIn,
+                                          child: const Text(
+                                            'ترقيه الخطه',
+                                            style: TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ),
@@ -724,7 +875,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    // Edit Profile Button
+                    // Edit Profile Button with enhanced styling
                     Container(
                       width: double.infinity,
                       height: 50,
@@ -732,36 +883,71 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         color: Colors.transparent,
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                            color: const Color(0xFF0A84FF), width: 1.5),
+                            color: const Color(0xFF0A84FF), width: 2),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF0A84FF).withOpacity(0.1),
+                            blurRadius: 8,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
                       ),
                       child: Material(
                         color: Colors.transparent,
                         child: InkWell(
                           borderRadius: BorderRadius.circular(12),
                           onTap: () => _showEditProfileDialog(context, student),
-                          child: Center(
-                            child: ShaderMask(
-                              shaderCallback: (bounds) => const LinearGradient(
-                                colors: [Color(0xFF0A84FF), Color(0xFF007AFF)],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                              ).createShader(bounds),
-                              blendMode: BlendMode.srcIn,
-                              child: const Text(
-                                'تعديل الملف الشخصي',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
+                          child: Stack(
+                            children: [
+                              // Decorative blue star in top-right corner
+                              Positioned(
+                                top: 4,
+                                right: 8,
+                                child: Container(
+                                  width: 16,
+                                  height: 16,
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF0A84FF)
+                                        .withOpacity(0.005),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: const Icon(
+                                    Icons.star,
+                                    color: Color(0xFF0A84FF),
+                                    size: 10,
+                                  ),
                                 ),
                               ),
-                            ),
+                              // Main content
+                              Center(
+                                child: ShaderMask(
+                                  shaderCallback: (bounds) =>
+                                      const LinearGradient(
+                                    colors: [
+                                      Color(0xFF0A84FF),
+                                      Color(0xFF007AFF)
+                                    ],
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                  ).createShader(bounds),
+                                  blendMode: BlendMode.srcIn,
+                                  child: const Text(
+                                    'تعديل الملف الشخصي',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ),
                     ),
                     const SizedBox(height: 16),
-                    // Logout Button
+                    // Logout Button with enhanced styling
                     Container(
                       width: double.infinity,
                       height: 50,
@@ -769,7 +955,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         color: Colors.transparent,
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                            color: const Color(0xFFE53E3E), width: 1.5),
+                            color: const Color(0xFFE53E3E), width: 2),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFFE53E3E).withOpacity(0.1),
+                            blurRadius: 8,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
                       ),
                       child: Material(
                         color: Colors.transparent,
@@ -777,23 +970,51 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           borderRadius: BorderRadius.circular(12),
                           onTap: () =>
                               _showLogoutConfirmation(context, authProvider),
-                          child: Center(
-                            child: ShaderMask(
-                              shaderCallback: (bounds) => const LinearGradient(
-                                colors: [Color(0xFFE53E3E), Color(0xFFC53030)],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                              ).createShader(bounds),
-                              blendMode: BlendMode.srcIn,
-                              child: const Text(
-                                'تسجيل خروج',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
+                          child: Stack(
+                            children: [
+                              // Decorative graduation cap in top-left corner
+                              Positioned(
+                                top: 4,
+                                left: 8,
+                                child: Container(
+                                  width: 16,
+                                  height: 16,
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFE53E3E)
+                                        .withOpacity(0.2),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: const Icon(
+                                    Icons.school_outlined,
+                                    color: Color(0xFFE53E3E),
+                                    size: 10,
+                                  ),
                                 ),
                               ),
-                            ),
+                              // Main content
+                              Center(
+                                child: ShaderMask(
+                                  shaderCallback: (bounds) =>
+                                      const LinearGradient(
+                                    colors: [
+                                      Color(0xFFE53E3E),
+                                      Color(0xFFC53030)
+                                    ],
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                  ).createShader(bounds),
+                                  blendMode: BlendMode.srcIn,
+                                  child: const Text(
+                                    'تسجيل خروج',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ),
