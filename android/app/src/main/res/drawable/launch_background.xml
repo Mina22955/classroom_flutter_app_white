@@ -4,11 +4,11 @@
         <bitmap android:gravity="fill" android:src="@drawable/background"/>
     </item>
     <item>
-        <inset android:insetLeft="@dimen/splash_inset"
-               android:insetRight="@dimen/splash_inset"
-               android:insetTop="@dimen/splash_inset"
-               android:insetBottom="@dimen/splash_inset">
-            <bitmap android:gravity="center" android:src="@drawable/splash"/>
-        </inset>
+        <scale
+            android:drawable="@drawable/splash"
+            android:scaleGravity="center"
+            android:useIntrinsicSizeAsMinimum="true"
+            android:scaleWidth="60%"
+            android:scaleHeight="60%" />
     </item>
 </layer-list>

@@ -92,12 +92,13 @@ class _SplashScreenState extends State<SplashScreen>
     final double scale = uiScale.clamp(0.8, 1.1);
 
     final double logoSize = 120 * scale;
-    final double logoMoveUp = -36.0 * scale;
+    final double logoMoveUp = -24.0 * scale;
     final double bigBlob = 160 * scale;
     final double smallBlob = 120 * scale;
     final double iconLarge = 40 * scale;
     final double iconSmall = 28 * scale;
-    final double textFontSize = (40 * scale).clamp(24.0, 42.0);
+    final double textFontSize = (40 * scale).clamp(22.0, 42.0);
+    final double textMaxWidth = screenSize.width * 0.82;
     final double pad24 = 24 * scale;
     final double pad30 = 30 * scale;
     final double pad60 = 60 * scale;
@@ -186,13 +187,13 @@ class _SplashScreenState extends State<SplashScreen>
                   },
                 ),
 
-                const SizedBox(height: 40),
+                SizedBox(height: (40 * scale).clamp(20.0, 48.0)),
 
                 // Animated text
                 AnimatedBuilder(
                   animation: _textAnimation,
                   builder: (context, child) {
-                    return _buildHandwritingText(textFontSize);
+                    return _buildHandwritingText(textFontSize, textMaxWidth);
                   },
                 ),
               ],
@@ -217,23 +218,30 @@ class _SplashScreenState extends State<SplashScreen>
     );
   }
 
-  Widget _buildHandwritingText(double fontSize) {
+  Widget _buildHandwritingText(double fontSize, double maxWidth) {
     const text = "Aamana classroom";
 
     // Use a connected script font and reveal the text smoothly from left to right
-    return ClipRect(
-      child: Align(
-        alignment: Alignment.centerLeft,
-        widthFactor: _textAnimation.value.clamp(0.0, 1.0),
-        child: Text(
-          text,
-          textDirection: TextDirection.ltr,
-          style: TextStyle(
-            fontSize: fontSize,
-            color: const Color(0xFF0A84FF),
-            fontFamily: 'WindSong',
-            fontWeight: FontWeight.w500,
-            letterSpacing: 0.0,
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxWidth: maxWidth),
+      child: ClipRect(
+        child: Align(
+          alignment: Alignment.centerLeft,
+          widthFactor: _textAnimation.value.clamp(0.0, 1.0),
+          child: FittedBox(
+            alignment: Alignment.centerLeft,
+            fit: BoxFit.scaleDown,
+            child: Text(
+              text,
+              textDirection: TextDirection.ltr,
+              style: TextStyle(
+                fontSize: fontSize,
+                color: const Color(0xFF0A84FF),
+                fontFamily: 'WindSong',
+                fontWeight: FontWeight.w500,
+                letterSpacing: 0.0,
+              ),
+            ),
           ),
         ),
       ),
